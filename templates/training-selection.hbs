@@ -1,0 +1,40 @@
+<section class="ml-app ml-training-selection">
+  <aside class="ml-training-selection__filters" aria-label="Training filters">
+    <div class="ml-training-selection__filter-search">
+      <label for="ml-training-search">Search</label>
+      <div class="ml-training-selection__search">
+        <input id="ml-training-search" type="search" data-training-search placeholder="Search training options..." autofocus>
+        <button type="button" class="ml-training-selection__clear-search" title="Clear Search" data-action="clearTrainingSearch">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+    <section class="ml-training-selection__filter-group">
+      <h4>Category</h4>
+      <div class="ml-training-selection__filter-options">
+        <button type="button" class="ml-training-selection__category is-active" data-action="filterCategory" data-category="all">
+          <i class="fa-solid fa-square-check"></i><span>All Categories</span><small>{{resultCount}}</small>
+        </button>
+        {{#each categories}}
+          <button type="button" class="ml-training-selection__category" data-action="filterCategory" data-category="{{category}}">
+            <i class="fa-regular fa-square"></i><span>{{category}}</span><small>{{count}}</small>
+          </button>
+        {{/each}}
+      </div>
+    </section>
+  </aside>
+  <main class="ml-training-selection__results ml-stack" data-gap="3">
+    <header class="ml-cluster ml-training-selection__heading">
+      <div><h2>Select Training</h2><p data-training-result-count>{{resultCount}} training options</p></div>
+    </header>
+    <div class="ml-training-selection__list">
+      {{#each choices}}
+        <button type="button" class="ml-training-selection__option {{#if selected}}is-selected{{/if}}" data-action="chooseTraining" data-training-choice data-value="{{value}}" data-category="{{category}}" data-search="{{searchText}}">
+          <span><strong>{{label}}</strong><small>{{category}}</small></span>
+          <i class="fa-solid {{#if selected}}fa-circle-check{{else}}fa-chevron-right{{/if}}"></i>
+        </button>
+      {{/each}}
+    </div>
+    <div class="ml-empty-state" data-training-empty hidden><i class="fa-solid fa-filter-circle-xmark"></i><h3>No Matching Training</h3><p>Change the search text or category filter.</p></div>
+  </main>
+</section>

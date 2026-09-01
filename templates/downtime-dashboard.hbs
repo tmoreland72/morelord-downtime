@@ -1,0 +1,58 @@
+<section class="ml-app ml-app-shell ml-downtime-dashboard">
+  <header class="ml-hero ml-downtime-hero">
+    <i class="fa-solid fa-timer ml-hero__icon"></i>
+    <div class="ml-hero__body"><h1>Morelord Downtime</h1><p>Turn available campaign time into persistent character and party progress.</p></div>
+    <div class="ml-actions">{{#if canOpenDocumentation}}<button type="button" data-action="openDocumentation"><i class="fa-solid fa-book-open"></i> Documentation</button>{{/if}}</div>
+  </header>
+
+  {{#if isPlayer}}{{#if hasActiveOpportunity}}<aside class="ml-callout"><i class="fa-solid fa-hourglass-half"></i><div><strong>{{opportunity.name}}</strong><p>{{opportunity.allocated}} of {{opportunity.available}} available hours allocated.</p></div></aside>{{else}}<aside class="ml-callout" data-tone="warning"><i class="fa-solid fa-clock"></i><strong>No active Downtime Session is available.</strong></aside>{{/if}}{{/if}}
+
+  {{#if isGm}}<section class="ml-surface ml-stack" data-gap="3">
+    <div class="ml-section-heading"><div><h2>GM Operations</h2><p>Campaign-wide status and items that may require attention during downtime.</p></div><button type="button" data-action="advanceDay"><i class="fa-solid fa-calendar-day"></i> Advance Day</button></div>
+    <div class="ml-grid" data-columns="auto">
+      <article class="ml-card ml-stack" data-gap="1"><span class="ml-eyebrow">Current Activities</span><strong>{{activeProjectCount}} active Projects</strong></article>
+      <article class="ml-card ml-stack" data-gap="1"><span class="ml-eyebrow">Available Time</span><strong>{{gmOperations.totalAvailableHours}} hours</strong></article>
+      <article class="ml-card ml-stack" data-gap="1"><span class="ml-eyebrow">Unallocated</span><strong>{{gmOperations.unallocatedHours}} hours</strong></article>
+      <article class="ml-card ml-stack" data-gap="1"><span class="ml-eyebrow">Waiting for GM</span><strong>{{gmOperations.waitingForGmCount}} Projects</strong></article>
+      <article class="ml-card ml-stack" data-gap="1"><span class="ml-eyebrow">Awaiting Collection</span><strong>{{gmOperations.awaitingCollectionCount}} Projects</strong></article>
+    </div>
+  </section>{{/if}}
+
+  <section class="ml-surface ml-stack" data-gap="3">
+    <div class="ml-section-heading"><div><h2>Projects</h2><p>Persistent activities and their current progress.</p></div>{{#if canStartActivities}}<button type="button" data-action="newProject"><i class="fa-solid fa-folder-plus"></i> New Project</button>{{/if}}</div>
+    {{#if hasProjects}}<div class="ml-resource-list">
+      <div class="ml-resource-header"><span>Project</span><span>Owner</span><span>Location</span><span>Progress</span><span>Actions</span></div>
+      {{#each projects}}<article class="ml-resource-item" data-project-id="{{id}}" data-owner-uuid="{{ownerUuid}}" data-recipe-id="{{recipeId}}" data-inventory-actor-uuid="{{inventoryActorUuid}}">
+        <div class="ml-resource-row">
+          <button type="button" class="ml-resource-main" data-action="{{#if external}}openCrafting{{else}}viewProject{{/if}}"><span><strong>{{name}}</strong><small>{{activityLabel}} · {{status}}</small></span><span>{{ownerName}}</span><span>{{locationName}}</span><span>{{progressLabel}}</span></button>
+          <div class="ml-resource-actions">
+            {{#if external}}<button type="button" data-action="openCrafting" title="Open in Craftworks"><i class="fa-solid fa-pen"></i></button>{{else}}{{#if isClosed}}<button type="button" data-action="viewProject" title="View Project"><i class="fa-solid fa-eye"></i></button>{{else}}{{#if canEditProject}}<button type="button" data-action="editProject" title="Edit Project"><i class="fa-solid fa-pen"></i></button>{{else}}<button type="button" data-action="viewProject" title="View Project"><i class="fa-solid fa-eye"></i></button>{{/if}}{{/if}}{{/if}}
+            {{#if canDeleteProject}}<button type="button" data-action="deleteProject" data-tone="danger" title="Delete Project"><i class="fa-solid fa-trash"></i></button>{{/if}}
+          </div>
+        </div>
+      </article>{{/each}}
+    </div>{{else}}<div class="ml-empty-state"><i class="fa-solid fa-list-check"></i><h3>No Projects</h3><p>Create a Project to begin tracking downtime progress.</p></div>{{/if}}
+  </section>
+
+  <section class="ml-surface ml-stack" data-gap="3">
+    <div class="ml-section-heading"><div><h2>Downtime Sessions</h2><p>Prepare, publish, run, and finalize downtime opportunities.</p></div>{{#if isGm}}<button type="button" data-action="openSession"><i class="fa-solid fa-plus"></i> New Session</button>{{/if}}</div>
+    {{#if hasSessions}}<div class="ml-resource-list">
+      <div class="ml-resource-header"><span>Session</span><span>Status</span><span>Location</span><span>Available Time</span><span>Actions</span></div>
+      {{#each sessions}}<article class="ml-resource-item" data-session-id="{{id}}">
+        <div class="ml-resource-row">
+          <button type="button" class="ml-resource-main" data-action="viewSession"><span><strong>{{name}}</strong><small>{{participantSummary}}</small></span><span>{{status}}</span><span>{{locationName}}</span><span>{{plannedDurationHours}} hours</span></button>
+          <div class="ml-resource-actions">{{#if isClosed}}<button type="button" data-action="viewSession" title="View Session"><i class="fa-solid fa-eye"></i></button>{{else}}<button type="button" data-action="editSession" title="Edit Session"><i class="fa-solid fa-pen"></i></button>{{/if}}{{#if canDelete}}<button type="button" data-action="deleteSession" data-tone="danger" title="Delete Session"><i class="fa-solid fa-trash"></i></button>{{/if}}</div>
+        </div>
+        {{#if @root.isGm}}{{#unless isClosed}}<div class="ml-resource-body ml-actions">{{#if canPublish}}<button type="button" data-action="publishSession">Publish Upcoming</button>{{/if}}{{#if canStart}}<button type="button" data-action="startSession">Start Downtime</button>{{/if}}{{#if canFinalize}}<button type="button" data-action="finalizeSession">Finalize</button>{{/if}}<button type="button" data-action="cancelSession" data-tone="danger">Cancel</button></div>{{/unless}}{{/if}}
+      </article>{{/each}}
+    </div>{{else}}<div class="ml-empty-state"><i class="fa-solid fa-calendar-xmark"></i><h3>No Downtime Sessions</h3><p>No downtime opportunities have been prepared yet.</p></div>{{/if}}
+  </section>
+
+  {{#if isGm}}<section class="ml-surface ml-stack" data-gap="3">
+    <div class="ml-section-heading"><div><h2>Locations</h2><p>Shared places used by Sessions, Projects, and the wider Morelord suite.</p></div>{{#if canManageLocations}}<button type="button" data-action="newLocation"><i class="fa-solid fa-map-location-dot"></i> New Location</button>{{/if}}</div>
+    {{#if hasLocations}}<div class="ml-resource-list">
+      <div class="ml-resource-header"><span>Location</span><span>Type</span><span>Capabilities</span><span>Scenes</span><span>Actions</span></div>
+      {{#each locations}}<article class="ml-resource-item" data-location-id="{{id}}" data-location-name="{{name}}"><div class="ml-resource-row"><button type="button" class="ml-resource-main" data-action="viewLocation"><span><strong>{{name}}</strong><small>{{notes}}</small></span><span>{{settlementType}}</span><span>{{capabilities.length}}</span><span>{{sceneIds.length}}</span></button><div class="ml-resource-actions">{{#if @root.canManageLocations}}<button type="button" data-action="editLocation" title="Edit Location"><i class="fa-solid fa-pen"></i></button><button type="button" data-action="deleteLocation" data-tone="danger" title="Delete Location"><i class="fa-solid fa-trash"></i></button>{{else}}<button type="button" data-action="viewLocation" title="View Location"><i class="fa-solid fa-eye"></i></button>{{/if}}</div></div></article>{{/each}}
+    </div>{{else}}<div class="ml-empty-state"><i class="fa-solid fa-map-location-dot"></i><h3>No Locations</h3><p>Create a shared Location for Sessions, Projects, and other Morelord activities.</p></div>{{/if}}
+  </section>{{/if}}
+</section>

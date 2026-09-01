@@ -1,0 +1,20 @@
+<section class="ml-app ml-app-shell">
+  <header class="ml-hero"><i class="fa-solid fa-graduation-cap ml-hero__icon"></i><div class="ml-hero__body"><h1>{{#if isEditing}}Edit{{else}}New{{/if}} Training Project</h1><p>Track training with a qualified character or named NPC instructor.</p></div></header>
+  <div class="ml-grid" data-columns="2">
+    <label><span>Student</span><select name="ownerUuid"><option value="">Choose a character</option>{{#each students}}<option value="{{uuid}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
+    <label><span>Instructor</span><select name="instructorSelection"><option value="">Choose an instructor</option><option value="npc" {{#if npcInstructor}}selected{{/if}}>NPC</option>{{#each instructors}}<option value="{{uuid}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
+    <label data-npc-instructor {{#unless npcInstructor}}hidden{{/unless}}><span>NPC Instructor Name</span><input name="npcInstructorName" type="text" value="{{npcInstructorName}}" placeholder="Who is providing the training?"></label>
+    <label><span>Project Location (Optional)</span><select name="locationId"><option value="">No fixed Location</option>{{#each locations}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
+    <label><span>Required Hours</span><input name="requiredHours" type="number" min="1" step="1" value="{{#if project}}{{project.progress.effort.requiredHours}}{{else}}120{{/if}}"></label>
+  </div>
+  <div class="ml-training-choice">
+    <span>Training</span>
+    <input type="hidden" name="proficiency" value="{{selectedTraining.value}}">
+    <div class="ml-training-choice__value">
+      <strong data-selected-training-label>{{#if selectedTraining}}{{selectedTraining.label}}{{else}}No training selected{{/if}}</strong>
+      <small data-selected-training-category>{{#if selectedTraining}}{{selectedTraining.category}}{{else}}Choose the proficiency or mastery to learn.{{/if}}</small>
+    </div>
+    <button type="button" data-action="selectTraining"><i class="fa-solid fa-list-check"></i> Select Training</button>
+  </div>
+  <div class="ml-actions"><button type="button" data-action="create"><i class="fa-solid fa-floppy-disk"></i> {{#if isEditing}}Save Project{{else}}Start Training{{/if}}</button></div>
+</section>

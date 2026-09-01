@@ -1,0 +1,9 @@
+{
+  "name": "morelord-downtime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check scripts/main.mjs && node --check scripts/apps/downtime-dashboard-app.mjs && node --check scripts/apps/creation-apps.mjs && node --check scripts/apps/detail-apps.mjs && node --check scripts/apps/live-window-registry.mjs && node --check scripts/adapters/dnd5e-proficiency-adapter.mjs && node --check scripts/adapters/craftworks-project-adapter.mjs && node --check scripts/activities/commission/commission-activity.mjs && node --check scripts/services/allocation-authority-service.mjs"
+  }
+}

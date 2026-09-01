@@ -1,0 +1,13 @@
+<section class="ml-app ml-stack" data-gap="3">
+  <header class="ml-hero">
+    <i class="fa-solid fa-folder-plus ml-hero__icon"></i>
+    <div class="ml-hero__body"><h1>New Project</h1><p>Choose the kind of long-term activity this Project will track.</p></div>
+  </header>
+  <div class="ml-grid ml-activity-card-grid" data-columns="auto">
+    {{#each activityTypes}}<article class="ml-card ml-stack ml-activity-card" data-gap="2">
+      <i class="{{icon}} ml-hero__icon"></i>
+      <div><h2>{{name}}</h2><p>{{description}}</p></div>
+      <button class="ml-activity-card__action" type="button" data-action="choose" data-activity-id="{{id}}"><i class="fa-solid fa-plus"></i> Create {{name}} Project</button>
+    </article>{{/each}}
+  </div>
+</section>

@@ -1,0 +1,12 @@
+<section class="ml-app ml-app-shell">
+  <header class="ml-hero"><i class="fa-solid fa-handshake ml-hero__icon"></i><div class="ml-hero__body"><h1>{{#if isEditing}}Edit{{else}}New{{/if}} Commission Project</h1><p>Track contracted work that advances with campaign days rather than Downtime Session hours.</p></div></header>
+  <div class="ml-grid" data-columns="2">
+    <label><span>Owner</span><select name="ownerUuid"><option value="">Choose a character</option>{{#each owners}}<option value="{{uuid}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
+    <label><span>Contractor Name</span><input name="contractorName" type="text" value="{{commission.contractorName}}" placeholder="Who is doing the work?"></label>
+    <label><span>Location</span><select name="locationId"><option value="">Choose a Location</option>{{#each locations}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
+    <label><span>Total Labor (Days)</span><input name="requiredDays" type="number" min="1" step="1" value="{{requiredDays}}"></label>
+  </div>
+  <label><span>Item Description</span><textarea name="itemDescription" rows="3" placeholder="What is being commissioned?">{{commission.itemDescription}}</textarea></label>
+  <label><span>Notes</span><textarea name="notes" rows="4" placeholder="Payment terms, gold still owed, special materials, or other reminders">{{commission.notes}}</textarea></label>
+  <div class="ml-actions"><button type="button" data-action="save"><i class="fa-solid fa-floppy-disk"></i> {{#if isEditing}}Save Commission{{else}}Start Commission{{/if}}</button></div>
+</section>

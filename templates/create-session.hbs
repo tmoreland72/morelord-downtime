@@ -1,0 +1,13 @@
+<section class="ml-app ml-app-shell">
+  <header class="ml-hero"><i class="fa-solid fa-calendar-plus ml-hero__icon"></i><div class="ml-hero__body"><h1>{{#if isEditing}}Edit{{else}}Create{{/if}} Downtime Session</h1><p>Prepare an opportunity players can review before it begins.</p></div></header>
+  <div class="ml-grid" data-columns="3">
+    <label><span>Session Name</span><input name="name" type="text" value="{{#if session}}{{session.name}}{{else}}Session Downtime{{/if}}" required></label>
+    <label><span>Location</span><select name="locationId"><option value="">No Location</option>{{#each locations}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
+    <label><span>Planned Hours per Character</span><input name="plannedDurationHours" type="number" min="0.5" step="0.5" value="{{#if session}}{{session.plannedDurationHours}}{{else}}40{{/if}}" required></label>
+  </div>
+  <label><span>Player Description</span><textarea name="description" rows="3" placeholder="What opportunity is available, and what should players prepare?">{{session.description}}</textarea></label>
+<fieldset class="ml-field-group"><legend>Participants</legend><div class="ml-actor-choice-grid">{{#each actors}}<label class="ml-actor-choice"><input type="checkbox" name="actorUuids" value="{{uuid}}" {{#if checked}}checked{{/if}} aria-label="Include {{name}}"><img src="{{img}}" alt=""><span>{{name}}</span></label>{{else}}<div class="ml-empty-state"><i class="fa-solid fa-users-slash"></i><h3>No Player Characters</h3><p>Create or assign a player character before preparing this Session.</p></div>{{/each}}</div></fieldset>
+  <fieldset class="ml-field-group"><legend>Available Activities</legend><div class="ml-check-grid">{{#each activityTypes}}<label class="ml-check"><input type="checkbox" name="availableActivities" value="{{id}}" {{#if checked}}checked{{/if}}><span><i class="{{icon}}"></i> {{name}}</span></label>{{/each}}</div></fieldset>
+  <label><span>GM Notes</span><textarea name="gmNotes" rows="2">{{session.gmNotes}}</textarea></label>
+  <div class="ml-actions"><button type="button" data-action="create"><i class="fa-solid fa-floppy-disk"></i> {{#if isEditing}}Save Changes{{else}}Save Draft Session{{/if}}</button></div>
+</section>
