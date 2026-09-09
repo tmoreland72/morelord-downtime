@@ -12,6 +12,8 @@ export class ActivityRegistry {
       name: String(definition.name ?? id),
       icon: String(definition.icon ?? "fa-solid fa-hourglass-half"),
       description: String(definition.description ?? "Start a new persistent downtime Project."),
+      actionLabel: String(definition.actionLabel ?? `Create ${definition.name ?? id} Project`),
+      actionIcon: String(definition.actionIcon ?? "fa-solid fa-plus"),
       showInProjectCreation: definition.showInProjectCreation !== false,
       availableInSessions: definition.availableInSessions !== false,
       createProject: definition.createProject ?? null,

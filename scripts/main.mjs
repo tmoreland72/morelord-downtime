@@ -8,7 +8,7 @@ import { TrainingAwardService, applyTrainingAwardResult } from "./activities/tra
 import { DowntimeDashboardApp } from "./apps/downtime-dashboard-app.mjs";
 import { NewProjectApp, SessionEditorApp, TrainingProjectApp } from "./apps/creation-apps.mjs";
 import { CommissionProjectApp } from "./apps/creation-apps.mjs";
-import { LocationDetailApp, ProjectDetailApp, SessionDetailApp } from "./apps/detail-apps.mjs";
+import { ProjectDetailApp, SessionDetailApp } from "./apps/detail-apps.mjs";
 import { SessionService } from "./services/session-service.mjs";
 import { AllocationAuthorityService } from "./services/allocation-authority-service.mjs";
 import { DOWNTIME_DOCUMENTATION } from "./documentation/product-documentation.mjs";
@@ -16,23 +16,30 @@ import { queueLiveWindowRefresh } from "./apps/live-window-registry.mjs";
 import { Dnd5eProficiencyAdapter } from "./adapters/dnd5e-proficiency-adapter.mjs";
 import { CraftworksProjectAdapter } from "./adapters/craftworks-project-adapter.mjs";
 import { COMMISSION_ACTIVITY_ID, commissionSummary, createCommissionProject } from "./activities/commission/commission-activity.mjs";
+import { getCoreApi, getCoreLocations, getModuleApi } from "./integrations/core-api.mjs";
+import { SOURCE_ITEM_ACTIVITY_ID, createSourceItemProject, sourceItemSummary } from "./activities/source-item/source-item-activity.mjs";
+import { SourceItemResolutionService } from "./activities/source-item/source-item-resolution-service.mjs";
+import { SourceItemProjectApp } from "./apps/source-item-app.mjs";
+import { MarketplaceSourcingAdapter } from "./adapters/marketplace-sourcing-adapter.mjs";
 
 const repository = new ProjectRepository();
 const activities = new ActivityRegistry();
 const projects = new ProjectService({ repository, activityRegistry: activities });
 const proficiencies = new Dnd5eProficiencyAdapter();
 const craftworksProjects = new CraftworksProjectAdapter();
+const marketplaceSourcing = new MarketplaceSourcingAdapter();
+const sourceItemResolution = new SourceItemResolutionService({ catalog: marketplaceSourcing });
 const trainingAwards = new TrainingAwardService({ proficiencyAdapter: proficiencies });
 let dashboardApp = null;
 let trainingApi = null;
 let commissionApi = null;
+let sourceItemApi = null;
 const sessions = new SessionService({ repository });
 const segments = new SegmentService({
   repository,
   activityRegistry: activities,
   requirementEvaluator: (requirements, context) => {
-    const locations = game.modules.get("morelord-core")?.api?.locations
-      ?? globalThis.MorelordCore?.locations;
+    const locations = getCoreApi()?.locations;
     if (!locations?.evaluate) return { passed: false, reasons: ["Morelord Core Location services are unavailable."] };
     const location = context.locationId ? locations.get(context.locationId) : {
       id: "road", name: "On the Road", settlementType: "road", sceneIds: [], capabilities: [], notes: "", metadata: { virtual: true }
@@ -53,7 +60,8 @@ const allocationAuthority = new AllocationAuthorityService({
   sessions,
   isPrimaryGm: () => isPrimaryActiveGm(),
   getTraining: () => trainingApi,
-  getCommission: () => commissionApi
+  getCommission: () => commissionApi,
+  getSourceItem: () => sourceItemApi
 });
 
 function isPrimaryActiveGm() {
@@ -63,28 +71,25 @@ function isPrimaryActiveGm() {
   return game.user.isGM && (!activeGms.length || activeGms[0].id === game.user.id);
 }
 
-function missingSuiteApis() {
+function missingOptionalSuiteApis() {
   return [
-    ["morelord-core", game.modules.get("morelord-core")?.api?.locations],
-    ["morelord-journeys", game.modules.get("morelord-journeys")?.api?.travel],
-    ["morelord-craftworks", game.modules.get("morelord-craftworks")?.api?.downtimeIntegration],
-    ["morelord-marketplace", game.modules.get("morelord-marketplace")?.api?.shops]
+    ["morelord-journeys", getModuleApi("morelord-journeys")?.travel],
+    ["morelord-craftworks", getModuleApi("morelord-craftworks", "MorelordCraftworks")?.downtimeIntegration],
+    ["morelord-marketplace", getModuleApi("morelord-marketplace", "MorelordMarketplace")?.shops]
   ].filter(([, value]) => !value).map(([id]) => id);
 }
 
-function verifySuiteApis({ attemptsRemaining = 40, intervalMs = 250 } = {}) {
-  const missing = missingSuiteApis();
+function reportOptionalSuiteApis({ attemptsRemaining = 40, intervalMs = 250 } = {}) {
+  const missing = missingOptionalSuiteApis();
   if (!missing.length) {
-    console.info(`${MODULE_ID} | Morelord suite integrations are ready.`);
+    console.info(`${MODULE_ID} | Optional Morelord suite integrations are ready.`);
     return;
   }
   if (attemptsRemaining > 1) {
-    setTimeout(() => verifySuiteApis({ attemptsRemaining: attemptsRemaining - 1, intervalMs }), intervalMs);
+    setTimeout(() => reportOptionalSuiteApis({ attemptsRemaining: attemptsRemaining - 1, intervalMs }), intervalMs);
     return;
   }
-  if (game.user.isGM) {
-    ui.notifications.warn(`Morelord Downtime is ready, but these suite APIs are unavailable: ${missing.join(", ")}. Update and enable the required modules.`);
-  }
+  console.info(`${MODULE_ID} | Optional integrations unavailable: ${missing.join(", ")}.`);
 }
 
 Hooks.once("init", () => {
@@ -110,10 +115,8 @@ Hooks.on("getSceneControlButtons", controls => {
 });
 
 Hooks.once("ready", () => {
-  game.modules.get("morelord-core")?.api?.ui?.documentation?.register(DOWNTIME_DOCUMENTATION);
-  const coreLocations = () => game.modules.get("morelord-core")?.api?.locations
-    ?? globalThis.MorelordCore?.locations
-    ?? null;
+  getCoreApi()?.ui?.documentation?.register(DOWNTIME_DOCUMENTATION);
+  const coreLocations = () => getCoreLocations();
   activities.register({
     id: TRAINING_ACTIVITY_ID,
     name: "Training",
@@ -139,13 +142,26 @@ Hooks.once("ready", () => {
     getSummary: commissionSummary
   });
   activities.register({
+    id: SOURCE_ITEM_ACTIVITY_ID,
+    name: "Source Item",
+    icon: "fa-solid fa-magnifying-glass-dollar",
+    description: "Invest gold and weeks to locate a magic item from a character's Marketplace wishlist.",
+    availableInSessions: false,
+    launch: () => new SourceItemProjectApp().render({ force: true }),
+    edit: project => new SourceItemProjectApp({ projectId: project.id }).render({ force: true }),
+    createProject: data => createSourceItemProject(data, { idFactory: () => foundry.utils.randomID() }),
+    getSummary: sourceItemSummary,
+    onComplete: project => sourceItemResolution.resolve(project)
+  });
+  activities.register({
     id: "crafting",
     name: "Crafting",
     icon: "fa-solid fa-hammer",
-    description: "Start or continue a recipe using Morelord Craftworks.",
-    showInProjectCreation: false,
+    description: "Open Morelord Craftworks and mark recipes for crafting to start a crafting Project. Marked recipes and active work appear in the Downtime Projects list.",
+    actionLabel: "Open Craftworks",
+    actionIcon: "fa-solid fa-arrow-up-right-from-square",
     launch: () => {
-      const craftworks = game.modules.get("morelord-craftworks")?.api ?? globalThis.MorelordCraftworks;
+      const craftworks = getModuleApi("morelord-craftworks", "MorelordCraftworks");
       if (typeof craftworks?.openCraft !== "function") return ui.notifications.warn("Morelord Craftworks is unavailable.");
       return craftworks.openCraft();
     }
@@ -183,6 +199,53 @@ Hooks.once("ready", () => {
     }
   });
   commissionApi = commission;
+  const sourceItem = Object.freeze({
+    createProject: async data => {
+      const target = await marketplaceSourcing.requireWishlistItem(data.owner?.uuid, data.target?.uuid);
+      const input = createSourceItemProject({ ...data, target }, { idFactory: () => foundry.utils.randomID() });
+      await marketplaceSourcing.spendInvestment(input.owner.uuid, input.metadata.sourceItem.investmentGp);
+      try {
+        return await projects.create(input);
+      } catch (error) {
+        await marketplaceSourcing.refundInvestment(input.owner.uuid, input.metadata.sourceItem.investmentGp);
+        throw error;
+      }
+    },
+    updateProject: async (id, data) => {
+      const existing = await projects.get(id);
+      if (!existing) throw new Error("Project not found.");
+      if (existing.metadata?.sourceItem?.outcome) throw new Error("A resolved Source Item Project cannot be edited.");
+      if (data.owner?.uuid !== existing.owner.uuid) throw new Error("A Source Item Project owner cannot be changed after investment begins.");
+      if (data.target?.uuid !== existing.metadata.sourceItem.target.uuid) throw new Error("The requested item cannot be changed after investment begins.");
+      const target = existing.metadata.sourceItem.target;
+      const additionalInvestmentGp = Number(data.investmentGp) - Number(existing.metadata.sourceItem.investmentGp);
+      if (additionalInvestmentGp < 0) throw new Error("Committed sourcing investment cannot be reduced.");
+      if (Number(data.weeks) < Number(existing.metadata.sourceItem.weeks)) throw new Error("Committed sourcing time cannot be reduced.");
+      const input = createSourceItemProject({
+        ...existing,
+        ...data,
+        target,
+        id: existing.id,
+        status: existing.status,
+        completedDays: existing.progress.elapsed.completedDays,
+        metadata: existing.metadata
+      }, { idFactory: () => existing.id });
+      if (additionalInvestmentGp) await marketplaceSourcing.spendInvestment(existing.owner.uuid, additionalInvestmentGp);
+      try {
+        return await projects.update(id, input);
+      } catch (error) {
+        if (additionalInvestmentGp) await marketplaceSourcing.refundInvestment(existing.owner.uuid, additionalInvestmentGp);
+        throw error;
+      }
+    },
+    negotiate: async (id, roll) => {
+      const existing = await projects.get(id);
+      if (!existing || existing.activityType !== SOURCE_ITEM_ACTIVITY_ID) throw new Error("Source Item Project not found.");
+      const negotiated = await sourceItemResolution.negotiate(existing, roll);
+      return projects.update(id, { metadata: negotiated.metadata });
+    }
+  });
+  sourceItemApi = sourceItem;
   allocationAuthority.start();
   DowntimeDashboardApp.configure({ projects, segments, sessions, allocationAuthority, locations: coreLocations, training, activities, craftworksProjects });
   TrainingProjectApp.configure({
@@ -204,6 +267,16 @@ Hooks.once("ready", () => {
     },
     onCreated: () => dashboardApp?.render({ force: true })
   });
+  SourceItemProjectApp.configure({
+    projects,
+    locations: coreLocations,
+    catalog: marketplaceSourcing,
+    sourceItem: {
+      createProject: data => allocationAuthority.createSourceItem(data),
+      updateProject: (id, data) => allocationAuthority.updateSourceItem(id, data)
+    },
+    onCreated: () => dashboardApp?.render({ force: true })
+  });
   NewProjectApp.configure({ activities });
   SessionEditorApp.configure({
     sessions,
@@ -215,7 +288,6 @@ Hooks.once("ready", () => {
   });
   SessionDetailApp.configure({ sessions, locations: coreLocations, activities });
   ProjectDetailApp.configure({ projects, segments, sessions, activities, locations: coreLocations, allocationAuthority });
-  LocationDetailApp.configure({ locations: coreLocations });
   const open = async () => {
     if (!dashboardApp) dashboardApp = new DowntimeDashboardApp();
     return dashboardApp.render({ force: true });
@@ -270,6 +342,10 @@ Hooks.once("ready", () => {
     cancellations: Object.freeze({ cancelProject: projectId => allocationAuthority.cancelProject(projectId) }),
     deletions: Object.freeze({ deleteProject: projectId => allocationAuthority.deleteProject(projectId) }),
     training: Object.freeze({ createProject: data => allocationAuthority.createTraining(data), canProgress: canProgressTraining }),
+    sourceItem: Object.freeze({
+      createProject: data => allocationAuthority.createSourceItem(data),
+      negotiate: projectId => allocationAuthority.negotiateSourceItem(projectId)
+    }),
     advanceDay: context => projects.advanceDay(context),
     locations: Object.freeze({
       current: () => coreLocations()?.current?.() ?? null,
@@ -282,7 +358,7 @@ Hooks.once("ready", () => {
   globalThis.MorelordDowntime = api;
   // Other modules may perform asynchronous initialization in their own ready
   // listeners. Retry quietly before reporting a genuinely unavailable API.
-  verifySuiteApis();
+  reportOptionalSuiteApis();
 });
 
 Hooks.on("morelordJourneys.dayComplete", async payload => {

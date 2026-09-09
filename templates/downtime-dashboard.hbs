@@ -19,14 +19,15 @@
   </section>{{/if}}
 
   <section class="ml-surface ml-stack" data-gap="3">
-    <div class="ml-section-heading"><div><h2>Projects</h2><p>Persistent activities and their current progress.</p></div>{{#if canStartActivities}}<button type="button" data-action="newProject"><i class="fa-solid fa-folder-plus"></i> New Project</button>{{/if}}</div>
+    <div class="ml-section-heading"><div><h2>Projects</h2><p>Persistent activities and their current progress.</p></div></div>
+    <div class="ml-list-toolbar">{{#if canStartActivities}}<button type="button" data-action="newProject"><i class="fa-solid fa-folder-plus"></i> New Project</button>{{/if}}<label class="ml-toggle"><input type="checkbox" name="showCompletedProjects" {{#if showCompletedProjects}}checked{{/if}}><span>Show Completed</span></label></div>
     {{#if hasProjects}}<div class="ml-resource-list">
       <div class="ml-resource-header"><span>Project</span><span>Owner</span><span>Location</span><span>Progress</span><span>Actions</span></div>
       {{#each projects}}<article class="ml-resource-item" data-project-id="{{id}}" data-owner-uuid="{{ownerUuid}}" data-recipe-id="{{recipeId}}" data-inventory-actor-uuid="{{inventoryActorUuid}}">
         <div class="ml-resource-row">
           <button type="button" class="ml-resource-main" data-action="{{#if external}}openCrafting{{else}}viewProject{{/if}}"><span><strong>{{name}}</strong><small>{{activityLabel}} · {{status}}</small></span><span>{{ownerName}}</span><span>{{locationName}}</span><span>{{progressLabel}}</span></button>
           <div class="ml-resource-actions">
-            {{#if external}}<button type="button" data-action="openCrafting" title="Open in Craftworks"><i class="fa-solid fa-pen"></i></button>{{else}}{{#if isClosed}}<button type="button" data-action="viewProject" title="View Project"><i class="fa-solid fa-eye"></i></button>{{else}}{{#if canEditProject}}<button type="button" data-action="editProject" title="Edit Project"><i class="fa-solid fa-pen"></i></button>{{else}}<button type="button" data-action="viewProject" title="View Project"><i class="fa-solid fa-eye"></i></button>{{/if}}{{/if}}{{/if}}
+            {{#if external}}<button type="button" data-action="openCrafting" title="Open in Craftworks"><i class="fa-solid fa-pen"></i></button>{{else}}{{#if canCollectProject}}<button type="button" data-action="collectProject" title="Collect Commission"><i class="fa-solid fa-box-open"></i></button>{{else}}{{#if isClosed}}<button type="button" data-action="viewProject" title="View Project"><i class="fa-solid fa-eye"></i></button>{{else}}{{#if canEditProject}}<button type="button" data-action="editProject" title="Edit Project"><i class="fa-solid fa-pen"></i></button>{{else}}<button type="button" data-action="viewProject" title="View Project"><i class="fa-solid fa-eye"></i></button>{{/if}}{{/if}}{{/if}}{{/if}}
             {{#if canDeleteProject}}<button type="button" data-action="deleteProject" data-tone="danger" title="Delete Project"><i class="fa-solid fa-trash"></i></button>{{/if}}
           </div>
         </div>
@@ -35,7 +36,8 @@
   </section>
 
   <section class="ml-surface ml-stack" data-gap="3">
-    <div class="ml-section-heading"><div><h2>Downtime Sessions</h2><p>Prepare, publish, run, and finalize downtime opportunities.</p></div>{{#if isGm}}<button type="button" data-action="openSession"><i class="fa-solid fa-plus"></i> New Session</button>{{/if}}</div>
+    <div class="ml-section-heading"><div><h2>Downtime Sessions</h2><p>Prepare, publish, run, and finalize downtime opportunities.</p></div></div>
+    <div class="ml-list-toolbar">{{#if isGm}}<button type="button" data-action="openSession"><i class="fa-solid fa-plus"></i> New Session</button>{{/if}}<label class="ml-toggle"><input type="checkbox" name="showCompletedSessions" {{#if showCompletedSessions}}checked{{/if}}><span>Show Completed</span></label></div>
     {{#if hasSessions}}<div class="ml-resource-list">
       <div class="ml-resource-header"><span>Session</span><span>Status</span><span>Location</span><span>Available Time</span><span>Actions</span></div>
       {{#each sessions}}<article class="ml-resource-item" data-session-id="{{id}}">
@@ -48,11 +50,8 @@
     </div>{{else}}<div class="ml-empty-state"><i class="fa-solid fa-calendar-xmark"></i><h3>No Downtime Sessions</h3><p>No downtime opportunities have been prepared yet.</p></div>{{/if}}
   </section>
 
-  {{#if isGm}}<section class="ml-surface ml-stack" data-gap="3">
-    <div class="ml-section-heading"><div><h2>Locations</h2><p>Shared places used by Sessions, Projects, and the wider Morelord suite.</p></div>{{#if canManageLocations}}<button type="button" data-action="newLocation"><i class="fa-solid fa-map-location-dot"></i> New Location</button>{{/if}}</div>
-    {{#if hasLocations}}<div class="ml-resource-list">
-      <div class="ml-resource-header"><span>Location</span><span>Type</span><span>Capabilities</span><span>Scenes</span><span>Actions</span></div>
-      {{#each locations}}<article class="ml-resource-item" data-location-id="{{id}}" data-location-name="{{name}}"><div class="ml-resource-row"><button type="button" class="ml-resource-main" data-action="viewLocation"><span><strong>{{name}}</strong><small>{{notes}}</small></span><span>{{settlementType}}</span><span>{{capabilities.length}}</span><span>{{sceneIds.length}}</span></button><div class="ml-resource-actions">{{#if @root.canManageLocations}}<button type="button" data-action="editLocation" title="Edit Location"><i class="fa-solid fa-pen"></i></button><button type="button" data-action="deleteLocation" data-tone="danger" title="Delete Location"><i class="fa-solid fa-trash"></i></button>{{else}}<button type="button" data-action="viewLocation" title="View Location"><i class="fa-solid fa-eye"></i></button>{{/if}}</div></div></article>{{/each}}
-    </div>{{else}}<div class="ml-empty-state"><i class="fa-solid fa-map-location-dot"></i><h3>No Locations</h3><p>Create a shared Location for Sessions, Projects, and other Morelord activities.</p></div>{{/if}}
-  </section>{{/if}}
+  {{#if isGm}}{{#if canManageLocations}}<section class="ml-surface ml-cluster ml-downtime-location-management">
+    <div><h2>Locations</h2><p>Locations and capabilities are shared across the Morelord suite and managed by Morelord Core.</p></div>
+    <button type="button" data-action="manageLocations"><i class="fa-solid fa-map-location-dot"></i> Manage Locations</button>
+  </section>{{/if}}{{/if}}
 </section>

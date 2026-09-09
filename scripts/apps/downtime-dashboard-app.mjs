@@ -1,11 +1,8 @@
 import { NewProjectApp, SessionEditorApp } from "./creation-apps.mjs";
-import { LocationDetailApp, ProjectDetailApp, SessionDetailApp } from "./detail-apps.mjs";
-import { registerLiveWindow, unregisterLiveWindow } from "./live-window-registry.mjs";
-const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
-
-const titleCase = value => String(value ?? "")
-  .replace(/([a-z])([A-Z])/g, "$1 $2")
-  .replace(/(^|\s)\S/g, letter => letter.toUpperCase());
+import { ProjectDetailApp, SessionDetailApp } from "./detail-apps.mjs";
+import { LiveDowntimeApplication } from "./downtime-application.mjs";
+import { getCoreApi } from "../integrations/core-api.mjs";
+import { titleCase } from "../ui/formatting.mjs";
 
 async function runSessionAction(app, target, operation, successMessage) {
   target.disabled = true;
@@ -19,7 +16,7 @@ async function runSessionAction(app, target, operation, successMessage) {
   } finally { target.disabled = false; }
 }
 
-export class DowntimeDashboardApp extends HandlebarsApplicationMixin(ApplicationV2) {
+export class DowntimeDashboardApp extends LiveDowntimeApplication {
   static services = null;
 
   static configure(services) {
@@ -34,10 +31,7 @@ export class DowntimeDashboardApp extends HandlebarsApplicationMixin(Application
     window: { title: "Morelord Downtime", icon: "fa-solid fa-timer", resizable: true },
     form: { closeOnSubmit: false },
     actions: {
-      newLocation: DowntimeDashboardApp.newLocation,
-      viewLocation: DowntimeDashboardApp.viewLocation,
-      editLocation: DowntimeDashboardApp.editLocation,
-      deleteLocation: DowntimeDashboardApp.deleteLocation,
+      manageLocations: DowntimeDashboardApp.manageLocations,
       openDocumentation: DowntimeDashboardApp.openDocumentation,
       newProject: DowntimeDashboardApp.newProject,
       openSession: DowntimeDashboardApp.openSession,
@@ -54,7 +48,8 @@ export class DowntimeDashboardApp extends HandlebarsApplicationMixin(Application
       deleteSession: DowntimeDashboardApp.deleteSession,
       advanceDay: DowntimeDashboardApp.advanceDay,
       allocate: DowntimeDashboardApp.allocate,
-      planProject: DowntimeDashboardApp.planProject
+      planProject: DowntimeDashboardApp.planProject,
+      collectProject: DowntimeDashboardApp.collectProject
     }
   };
 
@@ -62,15 +57,10 @@ export class DowntimeDashboardApp extends HandlebarsApplicationMixin(Application
     content: { template: "modules/morelord-downtime/templates/downtime-dashboard.hbs" }
   };
 
-  render(options = {}) {
-    registerLiveWindow(this);
-    const preserve = game.modules.get("morelord-core")?.api?.ui?.renderPreservingScroll;
-    return preserve ? preserve(this, () => super.render(options)) : super.render(options);
-  }
-
-  close(options = {}) {
-    unregisterLiveWindow(this);
-    return super.close(options);
+  constructor(options = {}) {
+    super(options);
+    this.showCompletedProjects = false;
+    this.showCompletedSessions = false;
   }
 
   async _prepareContext(options) {
@@ -129,6 +119,45 @@ export class DowntimeDashboardApp extends HandlebarsApplicationMixin(Application
       const daysRemaining = Math.max(0, project.progress.elapsed.requiredDays - project.progress.elapsed.completedDays);
       return { id: project.id, name: project.name, effortRemaining, daysRemaining, hasEffort: effortRemaining > 0, hasDays: daysRemaining > 0 };
     }).filter(entry => entry.hasEffort || entry.hasDays).sort((left, right) => (left.daysRemaining || Infinity) - (right.daysRemaining || Infinity)).slice(0, 5);
+    const projectRows = [...visibleProjects.map(project => {
+      const effort = project.progress.effort;
+      const elapsed = project.progress.elapsed;
+      const usesElapsed = ["elapsed", "hybrid"].includes(project.progress.mode);
+      return {
+        ...project,
+        activityLabel: titleCase(project.activityType),
+        ownerName: project.owner.name ?? project.owner.uuid,
+        locationName: locationRecords.find(location => location.id === project.locationId)?.name ?? "Any Location",
+        progressLabel: usesElapsed ? `${elapsed.completedDays} / ${elapsed.requiredDays} days` : `${effort.completedHours} / ${effort.requiredHours} hours`,
+        progressPercent: usesElapsed
+          ? (elapsed.requiredDays ? Math.min(100, Math.round(elapsed.completedDays / elapsed.requiredDays * 100)) : 0)
+          : (effort.requiredHours ? Math.min(100, Math.round(effort.completedHours / effort.requiredHours * 100)) : 0),
+        canEditProject: typeof activities.get(project.activityType)?.edit === "function"
+          && (["planned", "active", "paused", "waiting"].includes(project.status)
+            || (project.activityType === "commission" && project.status === "awaiting-collection"))
+          && (isGm || ownedActorUuids.has(project.owner.uuid)),
+        canDeleteProject: projectIsUnused(project) && (isGm || ownedActorUuids.has(project.owner.uuid)),
+        canCollectProject: project.activityType === "commission" && project.status === "awaiting-collection" && (isGm || ownedActorUuids.has(project.owner.uuid)),
+        isClosed: ["completed", "cancelled", "failed"].includes(project.status)
+          || (project.status === "awaiting-collection" && project.activityType !== "commission")
+      };
+    }), ...externalProjects];
+    const sessionRows = visibleSessions.map(session => ({
+      ...session,
+      locationName: locationRecords.find(location => location.id === session.locationId)?.name ?? "No Location",
+      participantSummary: session.participants.map(entry => entry.name ?? entry.actorUuid).join(", "),
+      activitySummary: session.availableActivities.map(id => activities.get(id)?.name ?? titleCase(id)).join(", ") || "No new activities",
+      canPublish: session.status === "draft",
+      canStart: session.status === "upcoming",
+      canFinalize: session.status === "active",
+      canEdit: ["draft", "upcoming", "active"].includes(session.status),
+      isClosed: ["finalized", "cancelled"].includes(session.status),
+      canDelete: isGm && ["draft", "cancelled"].includes(session.status)
+        && !session.segmentIds.map(id => allSegments.find(segment => segment.id === id)).filter(Boolean)
+          .some(segment => segment.allocations.length || segment.participants.some(participant => participant.allocatedHours > 0))
+    }));
+    const displayedProjects = this.showCompletedProjects ? projectRows : projectRows.filter(project => !project.isClosed);
+    const displayedSessions = this.showCompletedSessions ? sessionRows : sessionRows.filter(session => !session.isClosed);
     return {
       ...context,
       isGm,
@@ -139,82 +168,39 @@ export class DowntimeDashboardApp extends HandlebarsApplicationMixin(Application
       upcomingCompletions,
       hasUpcomingCompletions: upcomingCompletions.length > 0,
       canManageLocations: game.user.isGM && Boolean(locations()?.open),
-      canOpenDocumentation: Boolean(game.modules.get("morelord-core")?.api?.ui?.documentation?.open),
+      canOpenDocumentation: Boolean(getCoreApi()?.ui?.documentation?.open),
       activityTypes,
       canStartActivities: activityTypes.length > 0,
       activeProjectCount: visibleProjects.filter(project => ["active", "paused", "waiting"].includes(project.status)).length + externalProjects.length,
-      sessions: visibleSessions.map(session => ({
-        ...session,
-        locationName: locationRecords.find(location => location.id === session.locationId)?.name ?? "No Location",
-        participantSummary: session.participants.map(entry => entry.name ?? entry.actorUuid).join(", "),
-        activitySummary: session.availableActivities.map(id => activities.get(id)?.name ?? titleCase(id)).join(", ") || "No new activities",
-        canPublish: session.status === "draft",
-        canStart: session.status === "upcoming",
-        canFinalize: session.status === "active",
-        canEdit: ["draft", "upcoming", "active"].includes(session.status),
-        isClosed: ["finalized", "cancelled"].includes(session.status),
-        canDelete: isGm && ["draft", "cancelled"].includes(session.status)
-          && !session.segmentIds.map(id => allSegments.find(segment => segment.id === id)).filter(Boolean)
-            .some(segment => segment.allocations.length || segment.participants.some(participant => participant.allocatedHours > 0))
-      })),
-      hasSessions: visibleSessions.length > 0,
-      locations: locationRecords,
-      hasLocations: locationRecords.length > 0,
-      projects: [...visibleProjects.map(project => {
-        const effort = project.progress.effort;
-        const elapsed = project.progress.elapsed;
-        const usesElapsed = ["elapsed", "hybrid"].includes(project.progress.mode);
-        return {
-          ...project,
-          activityLabel: titleCase(project.activityType),
-          ownerName: project.owner.name ?? project.owner.uuid,
-          locationName: locationRecords.find(location => location.id === project.locationId)?.name ?? "Any Location",
-          progressLabel: usesElapsed ? `${elapsed.completedDays} / ${elapsed.requiredDays} days` : `${effort.completedHours} / ${effort.requiredHours} hours`,
-          progressPercent: usesElapsed
-            ? (elapsed.requiredDays ? Math.min(100, Math.round(elapsed.completedDays / elapsed.requiredDays * 100)) : 0)
-            : (effort.requiredHours ? Math.min(100, Math.round(effort.completedHours / effort.requiredHours * 100)) : 0),
-          canEditProject: typeof activities.get(project.activityType)?.edit === "function"
-            && (["planned", "active", "paused", "waiting"].includes(project.status)
-              || (project.activityType === "commission" && project.status === "awaiting-collection"))
-            && (isGm || ownedActorUuids.has(project.owner.uuid)),
-          canDeleteProject: projectIsUnused(project) && (isGm || ownedActorUuids.has(project.owner.uuid)),
-          isClosed: ["completed", "cancelled", "failed"].includes(project.status)
-            || (project.status === "awaiting-collection" && project.activityType !== "commission")
-        };
-      }), ...externalProjects],
-      hasProjects: visibleProjects.length + externalProjects.length > 0
+      sessions: displayedSessions,
+      hasSessions: displayedSessions.length > 0,
+      showCompletedSessions: this.showCompletedSessions,
+      projects: displayedProjects,
+      hasProjects: displayedProjects.length > 0,
+      showCompletedProjects: this.showCompletedProjects
     };
   }
 
-  static newLocation(event) {
-    event.preventDefault();
-    this.constructor.services.locations()?.open?.({ createNew: true });
+  _onRender(context, options) {
+    super._onRender(context, options);
+    this.element.querySelector('[name="showCompletedProjects"]')?.addEventListener("change", event => {
+      this.showCompletedProjects = event.currentTarget.checked;
+      void this.render({ force: true });
+    });
+    this.element.querySelector('[name="showCompletedSessions"]')?.addEventListener("change", event => {
+      this.showCompletedSessions = event.currentTarget.checked;
+      void this.render({ force: true });
+    });
   }
 
-  static viewLocation(event, target) {
+  static manageLocations(event) {
     event.preventDefault();
-    new LocationDetailApp({ locationId: target.closest("[data-location-id]")?.dataset.locationId }).render({ force: true });
-  }
-
-  static editLocation(event, target) {
-    event.preventDefault();
-    this.constructor.services.locations()?.open?.({ locationId: target.closest("[data-location-id]")?.dataset.locationId });
-  }
-
-  static async deleteLocation(event, target) {
-    event.preventDefault();
-    const row = target.closest("[data-location-id]");
-    const name = row?.dataset.locationName ?? "this Location";
-    const confirmed = await foundry.applications.api.DialogV2.confirm({ window: { title: "Delete Location" }, content: `<p>Delete <strong>${foundry.utils.escapeHTML(name)}</strong>? Existing Projects and Sessions may lose their Location reference.</p>`, modal: true });
-    if (!confirmed) return;
-    await this.constructor.services.locations().remove(row.dataset.locationId);
-    ui.notifications.info("Location deleted.");
-    await this.render({ force: true });
+    this.constructor.services.locations()?.open?.();
   }
 
   static openDocumentation(event) {
     event.preventDefault();
-    game.modules.get("morelord-core")?.api?.ui?.documentation?.open("morelord-downtime");
+    getCoreApi()?.ui?.documentation?.open("morelord-downtime");
   }
 
   static newProject(event) {
@@ -277,6 +263,17 @@ export class DowntimeDashboardApp extends HandlebarsApplicationMixin(Application
       ui.notifications.info("Project deleted.");
       await this.render({ force: true });
     } catch (error) { ui.notifications.error(`Could not delete Project: ${error.message}`); }
+  }
+
+  static async collectProject(event, target) {
+    event.preventDefault();
+    target.disabled = true;
+    try {
+      await this.constructor.services.allocationAuthority.collectProject(target.closest("[data-project-id]")?.dataset.projectId);
+      ui.notifications.info("Commission collected and completed.");
+      await this.render({ force: true });
+    } catch (error) { ui.notifications.error(`Could not collect Commission: ${error.message}`); }
+    finally { target.disabled = false; }
   }
 
   static async advanceDay(event, target) {

@@ -107,6 +107,19 @@ export class ProjectService {
     return structuredClone(project);
   }
 
+  async collect(id) {
+    this.#requireGm();
+    const state = await this.repository.read();
+    const project = state.projects[String(id)];
+    if (!project) throw new Error("Project not found.");
+    if (project.status !== "awaiting-collection") throw new Error("This Project is not awaiting collection.");
+    project.status = "completed";
+    appendHistory(project, "collected", { locationId: project.collectionLocationId }, this.now());
+    state.projects[project.id] = project;
+    await this.repository.write(state);
+    return structuredClone(project);
+  }
+
   async applyEffort(id, hours, options = {}) {
     this.#requireGm();
     const state = await this.repository.read();
@@ -132,7 +145,11 @@ export class ProjectService {
     }
     const changed = [];
     for (const [id, existing] of Object.entries(state.projects)) {
-      const project = advanceElapsedDay(existing, { dayKey, at: this.now() });
+      let project = advanceElapsedDay(existing, { dayKey, at: this.now() });
+      if (existing.status !== project.status && ["completed", "awaiting-collection"].includes(project.status)) {
+        const activity = this.activityRegistry?.get(project.activityType);
+        if (activity?.onComplete) project = await activity.onComplete(project) ?? project;
+      }
       state.projects[id] = project;
       if (project.progress.elapsed.completedDays !== existing.progress.elapsed.completedDays || project.status !== existing.status) changed.push(structuredClone(project));
     }

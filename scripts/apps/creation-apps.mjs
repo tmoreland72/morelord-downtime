@@ -1,21 +1,11 @@
-const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+import { DowntimeApplication } from "./downtime-application.mjs";
+import { getCoreParticipation } from "../integrations/core-api.mjs";
 
-class ScrollPreservingApplication extends HandlebarsApplicationMixin(ApplicationV2) {
-  render(options = {}) {
-    const preserve = game.modules.get("morelord-core")?.api?.ui?.renderPreservingScroll;
-    return preserve ? preserve(this, () => super.render(options)) : super.render(options);
-  }
-}
+const characterChoices = (options = {}) => getCoreParticipation().listCharacterChoices(options);
+const selectedCharacterUuids = form => getCoreParticipation().selectedCharacterUuids(form);
+const participantRecords = uuids => getCoreParticipation().participantRecords(uuids);
 
-const participation = () => game.modules.get("morelord-core")?.api?.ui?.participation;
-const characterChoices = (options = {}) => participation()?.listCharacterChoices(options) ?? Array.from(game.actors ?? [])
-  .filter(actor => actor.type === "character" && (!options.ownedOnly || actor.isOwner))
-  .sort((left, right) => left.name.localeCompare(right.name))
-  .map(actor => ({ uuid: actor.uuid, name: actor.name, img: actor.img, hasPlayerOwner: actor.hasPlayerOwner, checked: false }));
-const selectedCharacterUuids = form => participation()?.selectedCharacterUuids(form) ?? form.getAll("actorUuids").map(String);
-const participantRecords = uuids => participation()?.participantRecords(uuids) ?? uuids.map(actorUuid => ({ actorUuid, name: game.actors.get(actorUuid.split(".").at(-1))?.name ?? null }));
-
-class TrainingSelectionApp extends HandlebarsApplicationMixin(ApplicationV2) {
+class TrainingSelectionApp extends DowntimeApplication {
   static DEFAULT_OPTIONS = {
     id: "morelord-downtime-training-selection",
     classes: ["ml-window", "ml-downtime-module"],
@@ -108,7 +98,7 @@ class TrainingSelectionApp extends HandlebarsApplicationMixin(ApplicationV2) {
   }
 }
 
-export class TrainingProjectApp extends ScrollPreservingApplication {
+export class TrainingProjectApp extends DowntimeApplication {
   static services = null;
   static configure(services) { this.services = services; }
   static DEFAULT_OPTIONS = {
@@ -237,7 +227,7 @@ export class TrainingProjectApp extends ScrollPreservingApplication {
   }
 }
 
-export class CommissionProjectApp extends ScrollPreservingApplication {
+export class CommissionProjectApp extends DowntimeApplication {
   static services = null;
   static configure(services) { this.services = services; }
   static DEFAULT_OPTIONS = {
@@ -302,7 +292,7 @@ export class CommissionProjectApp extends ScrollPreservingApplication {
   }
 }
 
-export class NewProjectApp extends ScrollPreservingApplication {
+export class NewProjectApp extends DowntimeApplication {
   static services = null;
   static configure(services) { this.services = services; }
   static DEFAULT_OPTIONS = {
@@ -322,7 +312,9 @@ export class NewProjectApp extends ScrollPreservingApplication {
         id: activity.id,
         name: activity.name,
         icon: activity.icon,
-        description: activity.description
+        description: activity.description,
+        actionLabel: activity.actionLabel,
+        actionIcon: activity.actionIcon
       }))
     };
   }
@@ -336,7 +328,7 @@ export class NewProjectApp extends ScrollPreservingApplication {
   }
 }
 
-export class SessionEditorApp extends ScrollPreservingApplication {
+export class SessionEditorApp extends DowntimeApplication {
   static services = null;
   static configure(services) { this.services = services; }
   static DEFAULT_OPTIONS = {

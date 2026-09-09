@@ -1,5 +1,7 @@
+import { getModuleApi } from "../integrations/core-api.mjs";
+
 export class CraftworksProjectAdapter {
-  constructor({ getApi = () => game.modules.get("morelord-craftworks")?.api ?? globalThis.MorelordCraftworks } = {}) {
+  constructor({ getApi = () => getModuleApi("morelord-craftworks", "MorelordCraftworks") } = {}) {
     this.getApi = getApi;
   }
 

@@ -1,5 +1,0 @@
-<section class="ml-app ml-stack" data-gap="3">
-  <header class="ml-hero"><i class="fa-solid fa-map-location-dot ml-hero__icon"></i><div class="ml-hero__body"><p class="ml-eyebrow">{{location.settlementType}}</p><h1>{{location.name}}</h1><p>{{location.notes}}</p></div></header>
-<section class="ml-surface ml-stack" data-gap="2"><h2>Capabilities</h2>{{#each location.capabilities}}<div class="ml-resource-row"><strong>{{type}}</strong><span>{{tier}}</span><span>{{specialty}}</span></div>{{else}}<div class="ml-empty-state"><i class="fa-solid fa-screwdriver-wrench"></i><h3>No Capabilities</h3><p>This Location does not provide any registered capabilities.</p></div>{{/each}}</section>
-  <section class="ml-surface ml-stack" data-gap="2"><h2>Associated Scenes</h2><p>{{location.sceneIds.length}} associated Scenes</p></section>
-</section>

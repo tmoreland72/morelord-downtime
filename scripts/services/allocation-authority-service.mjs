@@ -3,12 +3,13 @@ import { MODULE_ID } from "../constants.mjs";
 const CHANNEL = `module.${MODULE_ID}`;
 
 export class AllocationAuthorityService {
-  constructor({ segments, projects, sessions, isPrimaryGm, getTraining = () => null, getCommission = () => null, timeoutMs = 10000 }) {
+  constructor({ segments, projects, sessions, isPrimaryGm, getTraining = () => null, getCommission = () => null, getSourceItem = () => null, timeoutMs = 10000 }) {
     this.segments = segments;
     this.projects = projects;
     this.sessions = sessions;
     this.getTraining = getTraining;
     this.getCommission = getCommission;
+    this.getSourceItem = getSourceItem;
     this.isPrimaryGm = isPrimaryGm;
     this.timeoutMs = timeoutMs;
     this.pending = new Map();
@@ -45,6 +46,23 @@ export class AllocationAuthorityService {
     return this.#request("commissionUpdate", request);
   }
 
+  async createSourceItem(input) {
+    if (game.user.isGM) return this.getSourceItem().createProject(input);
+    return this.#request("sourceItem", input);
+  }
+
+  async updateSourceItem(projectId, input) {
+    const request = { projectId: String(projectId), input };
+    if (game.user.isGM) return this.getSourceItem().updateProject(request.projectId, request.input);
+    return this.#request("sourceItemUpdate", request);
+  }
+
+  async negotiateSourceItem(projectId, roll) {
+    const input = { projectId: String(projectId), roll };
+    if (game.user.isGM) return this.getSourceItem().negotiate(input.projectId, input.roll);
+    return this.#request("sourceItemPersuasion", input);
+  }
+
   async planProject(sessionId, projectId) {
     const input = { sessionId: String(sessionId), projectId: String(projectId) };
     if (game.user.isGM) return this.sessions.planProject(input.sessionId, input.projectId);
@@ -61,6 +79,12 @@ export class AllocationAuthorityService {
     const input = { projectId: String(projectId) };
     if (game.user.isGM) return this.projects.removeUnused(input.projectId);
     return this.#request("projectDeletion", input);
+  }
+
+  async collectProject(projectId) {
+    const input = { projectId: String(projectId) };
+    if (game.user.isGM) return this.projects.collect(input.projectId);
+    return this.#request("projectCollection", input);
   }
 
   #request(kind, input) {
@@ -105,6 +129,16 @@ export class AllocationAuthorityService {
         await this.#authorizeProjectOwner(message.userId, message.input.projectId);
         await this.#authorizeOwnedActor(message.userId, message.input.input.owner?.uuid);
         result = await this.getCommission().updateProject(message.input.projectId, message.input.input);
+      } else if (kind === "sourceItem") {
+        await this.#authorizeOwnedActor(message.userId, message.input.owner?.uuid);
+        result = await this.getSourceItem().createProject(message.input);
+      } else if (kind === "sourceItemUpdate") {
+        await this.#authorizeProjectOwner(message.userId, message.input.projectId);
+        await this.#authorizeOwnedActor(message.userId, message.input.input.owner?.uuid);
+        result = await this.getSourceItem().updateProject(message.input.projectId, message.input.input);
+      } else if (kind === "sourceItemPersuasion") {
+        await this.#authorizeProjectOwner(message.userId, message.input.projectId);
+        result = await this.getSourceItem().negotiate(message.input.projectId, message.input.roll);
       } else if (kind === "planning") {
         await this.#authorizePlanning(message.userId, message.input);
         result = await this.sessions.planProject(message.input.sessionId, message.input.projectId);
@@ -114,6 +148,9 @@ export class AllocationAuthorityService {
       } else if (kind === "projectDeletion") {
         await this.#authorizeProjectOwner(message.userId, message.input.projectId);
         result = await this.projects.removeUnused(message.input.projectId);
+      } else if (kind === "projectCollection") {
+        await this.#authorizeProjectOwner(message.userId, message.input.projectId);
+        result = await this.projects.collect(message.input.projectId);
       } else return;
       game.socket.emit(CHANNEL, { type: `${kind}.response`, requestId: message.requestId, userId: message.userId, result });
     } catch (error) {

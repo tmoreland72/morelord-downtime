@@ -4,7 +4,7 @@
       <label for="ml-training-search">Search</label>
       <div class="ml-training-selection__search">
         <input id="ml-training-search" type="search" data-training-search placeholder="Search training options..." autofocus>
-        <button type="button" class="ml-training-selection__clear-search" title="Clear Search" data-action="clearTrainingSearch">
+        <button type="button" class="ml-icon-button ml-training-selection__clear-search" data-size="compact" data-variant="ghost" title="Clear Search" data-action="clearTrainingSearch">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -12,11 +12,11 @@
     <section class="ml-training-selection__filter-group">
       <h4>Category</h4>
       <div class="ml-training-selection__filter-options">
-        <button type="button" class="ml-training-selection__category is-active" data-action="filterCategory" data-category="all">
+        <button type="button" class="ml-list-button ml-training-selection__category is-active" data-action="filterCategory" data-category="all">
           <i class="fa-solid fa-square-check"></i><span>All Categories</span><small>{{resultCount}}</small>
         </button>
         {{#each categories}}
-          <button type="button" class="ml-training-selection__category" data-action="filterCategory" data-category="{{category}}">
+          <button type="button" class="ml-list-button ml-training-selection__category" data-action="filterCategory" data-category="{{category}}">
             <i class="fa-regular fa-square"></i><span>{{category}}</span><small>{{count}}</small>
           </button>
         {{/each}}
@@ -29,7 +29,7 @@
     </header>
     <div class="ml-training-selection__list">
       {{#each choices}}
-        <button type="button" class="ml-training-selection__option {{#if selected}}is-selected{{/if}}" data-action="chooseTraining" data-training-choice data-value="{{value}}" data-category="{{category}}" data-search="{{searchText}}">
+        <button type="button" class="ml-list-button ml-training-selection__option {{#if selected}}is-selected{{/if}}" data-action="chooseTraining" data-training-choice data-value="{{value}}" data-category="{{category}}" data-search="{{searchText}}">
           <span><strong>{{label}}</strong><small>{{category}}</small></span>
           <i class="fa-solid {{#if selected}}fa-circle-check{{else}}fa-chevron-right{{/if}}"></i>
         </button>

@@ -11,7 +11,9 @@
   "relationships": {
     "systems": [{ "id": "dnd5e", "type": "system", "compatibility": { "minimum": "5.3" } }],
     "requires": [
-      { "id": "morelord-core", "type": "module", "compatibility": { "minimum": "0.2.2" }, "manifest": "https://raw.githubusercontent.com/tmoreland72/morelord-core/main/module.json" },
+      { "id": "morelord-core", "type": "module", "compatibility": { "minimum": "0.3.0" }, "manifest": "https://raw.githubusercontent.com/tmoreland72/morelord-core/main/module.json" }
+    ],
+    "recommends": [
       { "id": "morelord-journeys", "type": "module", "compatibility": { "minimum": "0.2.1" }, "manifest": "https://raw.githubusercontent.com/tmoreland72/morelord-journeys/main/module.json" },
       { "id": "morelord-craftworks", "type": "module", "compatibility": { "minimum": "0.4.3" }, "manifest": "https://raw.githubusercontent.com/tmoreland72/morelord-craftworks/main/module.json" },
       { "id": "morelord-marketplace", "type": "module", "compatibility": { "minimum": "0.9.2" }, "manifest": "https://raw.githubusercontent.com/tmoreland72/morelord-marketplace/main/module.json" }

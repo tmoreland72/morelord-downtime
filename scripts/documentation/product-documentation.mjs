@@ -73,10 +73,23 @@ export const DOWNTIME_DOCUMENTATION = Object.freeze({
       ]
     },
     {
+      id: "source-item", title: "Source Item", icon: "fa-solid fa-magnifying-glass-dollar",
+      introduction: "Source Item spends gold and campaign weeks searching for a magic item saved on the character's Marketplace wishlist.",
+      bullets: [
+        "Choose an available Common through Legendary magic item from the Project owner's Marketplace wishlist, a Location, and either Arcana or Investigation.",
+        "The minimum investment is 100 gp and one week. Each additional 250 gp and each additional week adds +2 to the hidden check.",
+        "The rarity DC is Common 10, Uncommon 15, Rare 20, Very Rare 25, or Legendary 30. The selected skill is rolled automatically and kept hidden until the Project completes. Guidance and the Help action do not apply.",
+        "The result and randomized offer price are revealed after the final day. On failure, Marketplace selects 1d4 alternative magic items of the same or lower rarity.",
+        "After resolution, the owner may attempt one raw Persuasion check. Its total may raise or lower every offer price by as much as 25 percent."
+      ],
+      callouts: [{ tone: "warning", icon: "fa-solid fa-coins", title: "Investment is spent immediately", body: "Starting the Project deducts the committed gold through Marketplace. It pays vendor and contractor fees and is not refunded if the requested item is not found. Later edits may add investment or weeks, but cannot reduce or redirect what was already committed." }]
+    },
+    {
       id: "suite", title: "Morelord Suite Integration", icon: "fa-solid fa-puzzle-piece",
       paragraphs: [
         "Manage Locations opens the suite-wide Core location manager. Sessions use those shared locations, and activity requirements evaluate the same capability records used by other Morelord modules.",
         "Crafting is a read-through activity plugin. Marked recipes that are ready to craft and jobs already in progress appear as active Downtime Projects; opening one launches Craftworks with its crafter selected. Recipes, materials, checks, jobs, and outputs remain authoritative in Craftworks.",
+        "Marketplace owns Source Item wishlist choices, random same-or-lower-rarity alternatives, and character currency mutation. Downtime owns the elapsed Project, hidden result, and final offer record.",
         "Journeys can advance elapsed downtime days automatically. A GM can also use Advance Day in GM Operations when the campaign is not using Journeys. Craftworks and Marketplace can register compatible activities and providers. Authoritative allocations, planning, and player cancellations are resolved by the primary active GM."
       ]
     }

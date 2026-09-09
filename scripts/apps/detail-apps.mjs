@@ -1,10 +1,6 @@
-import { registerLiveWindow, unregisterLiveWindow } from "./live-window-registry.mjs";
-const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
-
-const titleCase = value => String(value ?? "")
-  .replaceAll("-", " ")
-  .replace(/([a-z])([A-Z])/g, "$1 $2")
-  .replace(/(^|\s)\S/g, letter => letter.toUpperCase());
+import { LiveDowntimeApplication } from "./downtime-application.mjs";
+import { titleCase } from "../ui/formatting.mjs";
+import { getCoreApi } from "../integrations/core-api.mjs";
 
 const formatHistory = history => history.slice().reverse().map(entry => ({
   ...entry,
@@ -13,18 +9,7 @@ const formatHistory = history => history.slice().reverse().map(entry => ({
   details: Object.keys(entry.data ?? {}).length ? JSON.stringify(entry.data) : null
 }));
 
-class DetailApplication extends HandlebarsApplicationMixin(ApplicationV2) {
-  render(options = {}) {
-    registerLiveWindow(this);
-    const preserve = game.modules.get("morelord-core")?.api?.ui?.renderPreservingScroll;
-    return preserve ? preserve(this, () => super.render(options)) : super.render(options);
-  }
-
-  close(options = {}) {
-    unregisterLiveWindow(this);
-    return super.close(options);
-  }
-}
+class DetailApplication extends LiveDowntimeApplication {}
 
 export class SessionDetailApp extends DetailApplication {
   static services = null;
@@ -71,7 +56,10 @@ export class ProjectDetailApp extends DetailApplication {
     window: { title: "Project Details", icon: "fa-solid fa-folder-open", resizable: true },
     actions: {
       allocate: ProjectDetailApp.allocate,
-      planProject: ProjectDetailApp.planProject
+      planProject: ProjectDetailApp.planProject,
+      negotiateSourceItem: ProjectDetailApp.negotiateSourceItem,
+      openSourceItem: ProjectDetailApp.openSourceItem,
+      collectCommission: ProjectDetailApp.collectCommission
     }
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/project-detail.hbs" } };
@@ -88,6 +76,7 @@ export class ProjectDetailApp extends DetailApplication {
     const elapsed = project.progress.elapsed;
     const training = project.metadata?.training;
     const commission = project.metadata?.commission;
+    const sourceItem = project.metadata?.sourceItem;
     const locations = this.constructor.services.locations()?.list?.() ?? [];
     const ownedActorUuids = new Set(Array.from(game.actors ?? []).filter(actor => actor.type === "character" && actor.isOwner).map(actor => actor.uuid));
     const activeSessions = await this.constructor.services.sessions.list({ status: "active" });
@@ -135,7 +124,16 @@ export class ProjectDetailApp extends DetailApplication {
         commission: commission ? {
           contractorName: commission.contractorName,
           itemDescription: commission.itemDescription,
-          notes: commission.notes
+          notes: commission.notes,
+          canCollect: project.status === "awaiting-collection" && canManage
+        } : null,
+        sourceItem: sourceItem ? {
+          ...sourceItem,
+          checkLabel: sourceItem.checkSkill === "inv" ? "Investigation" : "Arcana",
+          targetPriceLabel: sourceItem.outcome?.targetPriceGp == null ? null : `${sourceItem.outcome.targetPriceGp.toLocaleString()} gp`,
+          alternatives: (sourceItem.outcome?.alternatives ?? []).map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` })),
+          persuasionLabel: sourceItem.persuasion ? `${sourceItem.persuasion.total} (${sourceItem.persuasion.adjustment > 0 ? "+" : ""}${Math.round(sourceItem.persuasion.adjustment * 100)}%)` : null,
+          canNegotiate: Boolean(sourceItem.outcome && !sourceItem.persuasion && canManage)
         } : null,
         history: formatHistory(project.history)
       }
@@ -165,28 +163,38 @@ export class ProjectDetailApp extends DetailApplication {
     ui.notifications.info("Project planned for the upcoming Downtime Session.");
     await this.render({ force: true });
   }
-}
 
-export class LocationDetailApp extends DetailApplication {
-  static services = null;
-  static configure(services) { this.services = services; }
-  static DEFAULT_OPTIONS = {
-    id: "morelord-downtime-location-detail",
-    classes: ["ml-window", "ml-downtime-module"],
-    tag: "section",
-    position: { width: 680, height: 560 },
-    window: { title: "Location Details", icon: "fa-solid fa-map-location-dot", resizable: true }
-  };
-  static PARTS = { content: { template: "modules/morelord-downtime/templates/location-detail.hbs" } };
-
-  constructor(options = {}) {
-    super(options);
-    this.locationId = options.locationId;
+  static async negotiateSourceItem(event, target) {
+    event.preventDefault();
+    target.disabled = true;
+    try {
+      const project = await this.constructor.services.projects.get(this.projectId);
+      const result = await getCoreApi().rolls.skill(await fromUuid(project.owner.uuid), "per", { flavor: `${project.name} — Persuasion` });
+      if (result.cancelled) throw new Error("The Persuasion check was cancelled.");
+      const roll = { naturalRoll: result.naturalD20, total: result.total, rollModifier: result.total - result.naturalD20 };
+      await this.constructor.services.allocationAuthority.negotiateSourceItem(this.projectId, roll);
+      ui.notifications.info("Persuasion resolved and offer prices updated.");
+      await this.render({ force: true });
+    } catch (error) {
+      ui.notifications.error(`Could not negotiate the offer: ${error.message}`);
+    } finally { target.disabled = false; }
   }
 
-  async _prepareContext(options) {
-    const location = this.constructor.services.locations()?.get?.(this.locationId);
-    if (!location) throw new Error("Location not found.");
-    return { ...await super._prepareContext(options), location };
+  static async openSourceItem(event, target) {
+    event.preventDefault();
+    const item = await fromUuid(target.dataset.uuid);
+    if (!item) return ui.notifications.warn("That item is no longer available.");
+    item.sheet?.render(true);
+  }
+
+  static async collectCommission(event, target) {
+    event.preventDefault();
+    target.disabled = true;
+    try {
+      await this.constructor.services.allocationAuthority.collectProject(this.projectId);
+      ui.notifications.info("Commission collected and completed.");
+      await this.render({ force: true });
+    } catch (error) { ui.notifications.error(`Could not collect Commission: ${error.message}`); }
+    finally { target.disabled = false; }
   }
 }

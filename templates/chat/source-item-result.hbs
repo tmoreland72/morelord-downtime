@@ -1,0 +1,12 @@
+<section class="ml-source-item-chat">
+  <header><h2>{{projectName}}</h2><p>{{ownerName}} rolled {{total}} against DC {{dc}}.</p></header>
+  <p><strong>{{#if success}}Requested item found.{{else}}Requested item not found; alternative offers are available.{{/if}}</strong></p>
+  <div class="ml-source-item-chat__items">
+    {{#each items}}
+      <article class="ml-source-item-chat__item">
+        <img src="{{img}}" alt="{{name}}">
+        <div><a class="content-link" data-link data-uuid="{{uuid}}"><i class="fas fa-suitcase"></i> {{name}}</a><span>{{rarityLabel}} · {{priceLabel}}</span></div>
+      </article>
+    {{else}}<p>No eligible alternatives were available.</p>{{/each}}
+  </div>
+</section>

@@ -7,7 +7,7 @@
     {{#each activityTypes}}<article class="ml-card ml-stack ml-activity-card" data-gap="2">
       <i class="{{icon}} ml-hero__icon"></i>
       <div><h2>{{name}}</h2><p>{{description}}</p></div>
-      <button class="ml-activity-card__action" type="button" data-action="choose" data-activity-id="{{id}}"><i class="fa-solid fa-plus"></i> Create {{name}} Project</button>
+      <button class="ml-activity-card__action" type="button" data-action="choose" data-activity-id="{{id}}"><i class="{{actionIcon}}"></i> {{actionLabel}}</button>
     </article>{{/each}}
   </div>
 </section>

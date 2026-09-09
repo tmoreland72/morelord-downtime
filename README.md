@@ -2,6 +2,8 @@
 
 Morelord Downtime is the persistent Project and campaign-time orchestration layer for the Morelord suite on Foundry VTT 14.
 
+Morelord Core 0.3.0 or newer is required and provides the shared design system, participation helpers, documentation, and Location services. Journeys, Craftworks, and Marketplace are recommended integrations: Downtime detects and uses their public APIs when available without preventing the base module from loading when one is absent.
+
 ## Current implementation
 
 The headless Project Engine provides:
@@ -33,5 +35,7 @@ Time allocation is atomic with Project progress: every participant spends the sh
 Phase 7 registers Training as the first activity plugin. Training discovers D&D5e languages, skills, armor, weapons, tools, and weapon masteries through a system adapter, and supports participant or provider instructors, travel compatibility, persistent progress across Sessions, and safe proficiency awards.
 
 Phase 8 provides the structured GM/player dashboard and full Downtime Session lifecycle. GMs prepare and publish Sessions, monitor intervention queues, finalize with validation, and review history from Session details. Players preview relevant Sessions, create permitted Projects, and allocate time through GM-authoritative requests. The dashboard launches the same Core-owned Manage Locations application used throughout the suite.
+
+Source Item is an elapsed activity backed by Marketplace. A character selects a Common through Legendary magic item from their Marketplace wishlist, spends at least 100 gp, and commits at least one week. Gold and extra weeks improve a hidden Arcana or Investigation result; completion reveals either the requested item's offer price or 1d4 Marketplace-selected alternatives of the same or lower rarity. One unassisted Persuasion result may then adjust the offers.
 
 Sessions are persistent downtime opportunities distinct from Projects. GMs can prepare drafts, publish upcoming opportunities, start them to make time available, and finalize with unresolved-time validation. Players see only Sessions and Projects relevant to Actors they own. Their Project creation and allocation requests are validated and committed by the primary active GM; Project choices come from the active Session rather than a hardcoded player menu.

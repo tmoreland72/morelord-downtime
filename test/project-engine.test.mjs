@@ -4,15 +4,15 @@ import { ProjectRepository } from "../scripts/persistence/project-repository.mjs
 import { ProjectService } from "../scripts/services/project-service.mjs";
 import { ActivityRegistry } from "../scripts/domain/activity-registry.mjs";
 
-function harness() {
+function harness({ activityRegistry = null } = {}) {
   let stored = null;
   let time = 1000;
   const repository = new ProjectRepository({
     getState: async () => stored,
     setState: async value => { stored = structuredClone(value); }
   });
-  const service = new ProjectService({ repository, idFactory: () => "project-1", now: () => ++time });
-  return { service, reload: () => new ProjectService({ repository, idFactory: () => "project-2", now: () => ++time }) };
+  const service = new ProjectService({ repository, activityRegistry, idFactory: () => "project-1", now: () => ++time });
+  return { service, reload: () => new ProjectService({ repository, activityRegistry, idFactory: () => "project-2", now: () => ++time }) };
 }
 
 const owner = { type: "actor", uuid: "Actor.aric", name: "Aric" };
@@ -37,6 +37,14 @@ test("a 10-day provider Project advances without character effort", async () => 
   assert.equal(project.status, "awaiting-collection");
 });
 
+test("an awaiting-collection Project can be collected and completed", async () => {
+  const { service } = harness();
+  await service.create({ name: "Commission", activityType: "commission", owner, status: "awaiting-collection", collectionLocationId: "market", progress: { mode: "elapsed", elapsed: { requiredDays: 1, completedDays: 1 } } });
+  const project = await service.collect("project-1");
+  assert.equal(project.status, "completed");
+  assert.equal(project.history.at(-1).type, "collected");
+});
+
 test("duplicate day keys never advance a provider Project twice", async () => {
   const { service } = harness();
   await service.create({ name: "Potion Order", activityType: "commission-crafting", owner, status: "active", progress: { mode: "elapsed", elapsed: { requiredDays: 3 } } });
@@ -45,6 +53,20 @@ test("duplicate day keys never advance a provider Project twice", async () => {
   assert.equal(first.advanced, true);
   assert.equal(duplicate.duplicate, true);
   assert.equal((await service.get("project-1")).progress.elapsed.completedDays, 1);
+});
+
+test("elapsed activities run their completion hook on the final day", async () => {
+  const registry = new ActivityRegistry();
+  registry.register({
+    id: "source-item",
+    createProject: data => data,
+    onComplete: project => ({ ...project, metadata: { ...project.metadata, resolved: true } })
+  });
+  const { service } = harness({ activityRegistry: registry });
+  await service.create({ name: "Source Item", activityType: "source-item", owner, status: "active", progress: { mode: "elapsed", elapsed: { requiredDays: 1 } } });
+  const result = await service.advanceDay({ idempotencyKey: "manual:1" });
+  assert.equal(result.projects[0].metadata.resolved, true);
+  assert.equal((await service.get("project-1")).metadata.resolved, true);
 });
 
 test("cancelling a Project preserves it and records the cancellation", async () => {
@@ -88,4 +110,12 @@ test("activities register as plugins rather than core workflow branches", () => 
   assert.equal(registry.get("crafting").launch(), "opened");
   assert.equal(registry.get("crafting").createProject, null);
   assert.equal(registry.list().length, 2);
+});
+
+test("launch-only activities can provide an external action label", () => {
+  const registry = new ActivityRegistry();
+  const activity = registry.register({ id: "crafting", name: "Crafting", launch: () => {}, actionLabel: "Open Craftworks", actionIcon: "fa-solid fa-arrow-up-right-from-square" });
+  assert.equal(activity.showInProjectCreation, true);
+  assert.equal(activity.actionLabel, "Open Craftworks");
+  assert.equal(activity.actionIcon, "fa-solid fa-arrow-up-right-from-square");
 });
