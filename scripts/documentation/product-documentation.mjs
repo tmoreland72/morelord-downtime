@@ -42,9 +42,10 @@ export const DOWNTIME_DOCUMENTATION = Object.freeze({
       introduction: "Players can create and manage persistent Projects at any time, but can only spend time after the GM starts a Session that permits that activity.",
       steps: [
         { title: "Review the opportunity", body: "Open Downtime to see the published Session, its location, participants, available hours, and permitted activities." },
-        { title: "Start or plan a Project", body: "Create and manage Projects whenever needed, or attach an existing persistent Project to an upcoming Session." },
+        { title: "Start or plan a Project", body: "Create and manage Projects whenever needed, or attach an existing persistent Project to an upcoming Session. In New Project, activity cards wrap into additional rows as the window narrows so their action buttons retain single-line labels and spacing." },
         { title: "Allocate time", body: "Once Downtime is active, choose the contributors, enter the hours, and allocate them to the Project." },
-        { title: "Continue later", body: "Unfinished Projects stay on the dashboard and can receive eligible time during future Sessions." }
+        { title: "Continue later", body: "Unfinished Projects stay on the dashboard and can receive eligible time during future Sessions." },
+        { title: "Cancel or delete a Project", body: "The GM or Project owner can use Cancel Project or Delete Project in the dashboard, Project details, or activity editor. Cancellation stops progress and keeps the Project under Show Completed. Unused Projects can be deleted immediately; cancel Projects with recorded progress before deleting them. Deletion permanently removes the Project and its history, while Session allocation records remain. Neither action refunds time or gold. Manage Crafting Projects in Craftworks." }
       ]
     },
     {
@@ -90,7 +91,7 @@ export const DOWNTIME_DOCUMENTATION = Object.freeze({
         "Manage Locations opens the suite-wide Core location manager. Sessions use those shared locations, and activity requirements evaluate the same capability records used by other Morelord modules.",
         "Crafting is a read-through activity plugin. Marked recipes that are ready to craft and jobs already in progress appear as active Downtime Projects; opening one launches Craftworks with its crafter selected. Recipes, materials, checks, jobs, and outputs remain authoritative in Craftworks.",
         "Marketplace owns Source Item wishlist choices, random same-or-lower-rarity alternatives, and character currency mutation. Downtime owns the elapsed Project, hidden result, and final offer record.",
-        "Journeys can advance elapsed downtime days automatically. A GM can also use Advance Day in GM Operations when the campaign is not using Journeys. Craftworks and Marketplace can register compatible activities and providers. Authoritative allocations, planning, and player cancellations are resolved by the primary active GM."
+        "Journeys can advance elapsed downtime days automatically. A GM can also use Advance Day below the GM Operations heading divider, above the status cards, when the campaign is not using Journeys. Craftworks and Marketplace can register compatible activities and providers. Authoritative allocations, planning, and player cancellations are resolved by the primary active GM."
       ]
     }
   ]

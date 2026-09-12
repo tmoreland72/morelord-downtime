@@ -1,3 +1,4 @@
+import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { SOURCE_ITEM_RARITIES, sourcingBonus } from "../activities/source-item/source-item-activity.mjs";
 import { getCoreParticipation } from "../integrations/core-api.mjs";
 import { DowntimeApplication } from "./downtime-application.mjs";
@@ -13,7 +14,7 @@ export class SourceItemProjectApp extends DowntimeApplication {
     position: { width: 720, height: "auto" },
     window: { title: "Source Item", icon: "fa-solid fa-magnifying-glass-dollar", resizable: true },
     form: { closeOnSubmit: false },
-    actions: { save: SourceItemProjectApp.save }
+    actions: { ...projectManagementActions, save: SourceItemProjectApp.save }
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/create-source-item.hbs" } };
 
@@ -42,6 +43,7 @@ export class SourceItemProjectApp extends DowntimeApplication {
     if (sourceItem.target && !this.wishlist.some(item => item.uuid === sourceItem.target.uuid)) this.wishlist.unshift(sourceItem.target);
     return {
       ...await super._prepareContext(options),
+      ...await projectManagementContext(project, this.constructor.services),
       isEditing: Boolean(project),
       resolved: Boolean(sourceItem.outcome),
       sourceItem,

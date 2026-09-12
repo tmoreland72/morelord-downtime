@@ -77,7 +77,7 @@ export class AllocationAuthorityService {
 
   async deleteProject(projectId) {
     const input = { projectId: String(projectId) };
-    if (game.user.isGM) return this.projects.removeUnused(input.projectId);
+    if (game.user.isGM) return this.projects.removeUnused(input.projectId, { allowCancelled: true });
     return this.#request("projectDeletion", input);
   }
 
@@ -147,7 +147,7 @@ export class AllocationAuthorityService {
         result = await this.projects.cancel(message.input.projectId);
       } else if (kind === "projectDeletion") {
         await this.#authorizeProjectOwner(message.userId, message.input.projectId);
-        result = await this.projects.removeUnused(message.input.projectId);
+        result = await this.projects.removeUnused(message.input.projectId, { allowCancelled: true });
       } else if (kind === "projectCollection") {
         await this.#authorizeProjectOwner(message.userId, message.input.projectId);
         result = await this.projects.collect(message.input.projectId);

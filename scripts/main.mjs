@@ -65,7 +65,7 @@ const allocationAuthority = new AllocationAuthorityService({
 });
 
 function isPrimaryActiveGm() {
-  const activeGms = Array.from(game.users ?? [])
+  const activeGms = Array.from(globalThis.MorelordCore?.users?.list() ?? game.users ?? [])
     .filter(user => user.active && user.isGM)
     .sort((left, right) => left.id.localeCompare(right.id));
   return game.user.isGM && (!activeGms.length || activeGms[0].id === game.user.id);
@@ -249,6 +249,8 @@ Hooks.once("ready", () => {
   allocationAuthority.start();
   DowntimeDashboardApp.configure({ projects, segments, sessions, allocationAuthority, locations: coreLocations, training, activities, craftworksProjects });
   TrainingProjectApp.configure({
+    segments,
+    allocationAuthority,
     projects,
     locations: coreLocations,
     proficiencies,
@@ -259,6 +261,8 @@ Hooks.once("ready", () => {
     onCreated: () => dashboardApp?.render({ force: true })
   });
   CommissionProjectApp.configure({
+    segments,
+    allocationAuthority,
     projects,
     locations: coreLocations,
     commission: {
@@ -268,6 +272,8 @@ Hooks.once("ready", () => {
     onCreated: () => dashboardApp?.render({ force: true })
   });
   SourceItemProjectApp.configure({
+    segments,
+    allocationAuthority,
     projects,
     locations: coreLocations,
     catalog: marketplaceSourcing,

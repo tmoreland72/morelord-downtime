@@ -1,3 +1,4 @@
+import { projectManagementActions } from "./project-management.mjs";
 import { NewProjectApp, SessionEditorApp } from "./creation-apps.mjs";
 import { ProjectDetailApp, SessionDetailApp } from "./detail-apps.mjs";
 import { LiveDowntimeApplication } from "./downtime-application.mjs";
@@ -39,7 +40,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
       viewProject: DowntimeDashboardApp.viewProject,
       openCrafting: DowntimeDashboardApp.openCrafting,
       editProject: DowntimeDashboardApp.editProject,
-      deleteProject: DowntimeDashboardApp.deleteProject,
+      ...projectManagementActions,
       editSession: DowntimeDashboardApp.editSession,
       publishSession: DowntimeDashboardApp.publishSession,
       startSession: DowntimeDashboardApp.startSession,
@@ -74,6 +75,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
     const locationRecords = locations()?.list?.() ?? [];
     const projectIsUnused = project => project.progress.effort.completedHours === 0
       && project.progress.elapsed.completedDays === 0
+      && !project.participants.some(participant => participant.hoursContributed > 0)
       && !allSegments.some(segment => segment.allocations.some(allocation => allocation.projectId === project.id))
       && project.history.every(entry => ["created", "updated", "cancelled"].includes(entry.type));
     const visibleProjects = allProjects.filter(project => isGm
@@ -136,7 +138,8 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
           && (["planned", "active", "paused", "waiting"].includes(project.status)
             || (project.activityType === "commission" && project.status === "awaiting-collection"))
           && (isGm || ownedActorUuids.has(project.owner.uuid)),
-        canDeleteProject: projectIsUnused(project) && (isGm || ownedActorUuids.has(project.owner.uuid)),
+        canCancelProject: !["completed", "awaiting-collection", "cancelled", "failed"].includes(project.status) && (isGm || ownedActorUuids.has(project.owner.uuid)),
+        canDeleteProject: (project.status === "cancelled" || projectIsUnused(project)) && (isGm || ownedActorUuids.has(project.owner.uuid)),
         canCollectProject: project.activityType === "commission" && project.status === "awaiting-collection" && (isGm || ownedActorUuids.has(project.owner.uuid)),
         isClosed: ["completed", "cancelled", "failed"].includes(project.status)
           || (project.status === "awaiting-collection" && project.activityType !== "commission")
@@ -251,18 +254,6 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
     const editor = this.constructor.services.activities.get(project?.activityType)?.edit;
     if (!editor) return ui.notifications.warn("This Project type does not provide an editor.");
     return editor(project);
-  }
-
-  static async deleteProject(event, target) {
-    event.preventDefault();
-    const row = target.closest("[data-project-id]");
-    const confirmed = await foundry.applications.api.DialogV2.confirm({ window: { title: "Delete Project" }, content: "<p>Delete this Project permanently? Projects with recorded progress cannot be deleted.</p>", modal: true });
-    if (!confirmed) return;
-    try {
-      await this.constructor.services.allocationAuthority.deleteProject(row.dataset.projectId);
-      ui.notifications.info("Project deleted.");
-      await this.render({ force: true });
-    } catch (error) { ui.notifications.error(`Could not delete Project: ${error.message}`); }
   }
 
   static async collectProject(event, target) {

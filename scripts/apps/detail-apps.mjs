@@ -1,3 +1,4 @@
+import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { titleCase } from "../ui/formatting.mjs";
 import { getCoreApi } from "../integrations/core-api.mjs";
@@ -55,6 +56,7 @@ export class ProjectDetailApp extends DetailApplication {
     position: { width: 720, height: 680 },
     window: { title: "Project Details", icon: "fa-solid fa-folder-open", resizable: true },
     actions: {
+      ...projectManagementActions,
       allocate: ProjectDetailApp.allocate,
       planProject: ProjectDetailApp.planProject,
       negotiateSourceItem: ProjectDetailApp.negotiateSourceItem,
@@ -95,6 +97,7 @@ export class ProjectDetailApp extends DetailApplication {
     const effortRemaining = Math.max(0, effort.requiredHours - effort.completedHours);
     return {
       ...await super._prepareContext(options),
+      ...await projectManagementContext(project, this.constructor.services),
       project: {
         ...project,
         activityLabel: this.constructor.services.activities.get(project.activityType)?.name ?? titleCase(project.activityType),

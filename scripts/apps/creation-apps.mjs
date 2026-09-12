@@ -1,3 +1,4 @@
+import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { DowntimeApplication } from "./downtime-application.mjs";
 import { getCoreParticipation } from "../integrations/core-api.mjs";
 
@@ -108,7 +109,7 @@ export class TrainingProjectApp extends DowntimeApplication {
     position: { width: 680, height: "auto" },
     window: { title: "Training Project", icon: "fa-solid fa-graduation-cap", resizable: true },
     form: { closeOnSubmit: false },
-    actions: { create: TrainingProjectApp.create, selectTraining: TrainingProjectApp.selectTraining }
+    actions: { ...projectManagementActions, create: TrainingProjectApp.create, selectTraining: TrainingProjectApp.selectTraining }
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/create-training.hbs" } };
 
@@ -143,6 +144,7 @@ export class TrainingProjectApp extends DowntimeApplication {
       ?? (studentChoices.length === 1 ? studentChoices[0].uuid : "");
     return {
       ...await super._prepareContext(options),
+      ...await projectManagementContext(project, this.constructor.services),
       isEditing: Boolean(project),
       project,
       students: studentChoices.map(actor => ({ ...actor, selected: actor.uuid === defaultStudentUuid })),
@@ -237,7 +239,7 @@ export class CommissionProjectApp extends DowntimeApplication {
     position: { width: 680, height: "auto" },
     window: { title: "Commission Project", icon: "fa-solid fa-handshake", resizable: true },
     form: { closeOnSubmit: false },
-    actions: { save: CommissionProjectApp.save }
+    actions: { ...projectManagementActions, save: CommissionProjectApp.save }
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/create-commission.hbs" } };
 
@@ -255,6 +257,7 @@ export class CommissionProjectApp extends DowntimeApplication {
       ?? (owners.length === 1 ? owners[0].uuid : "");
     return {
       ...await super._prepareContext(options),
+      ...await projectManagementContext(project, this.constructor.services),
       isEditing: Boolean(project),
       project,
       commission: project?.metadata?.commission ?? {},

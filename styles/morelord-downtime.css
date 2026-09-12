@@ -38,9 +38,9 @@
 .ml-training-choice p { margin: 0; color: var(--ml-color-muted); }
 .ml-training-choice__value { display: grid; gap: var(--ml-space-1); }
 .ml-training-choice__value small { color: var(--ml-color-muted); }
-.ml-activity-card-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); align-items: stretch; }
-.ml-activity-card { min-width: min(100%, 18rem); height: 100%; }
-.ml-activity-card__action { margin-top: auto; white-space: nowrap; }
+.ml-downtime-activity-cards { align-items: stretch; gap: var(--ml-space-3); }
+.ml-downtime-activity-card { flex: 1 1 18rem; min-width: min-content; }
+.ml-downtime-activity-card__action { margin-top: auto; min-width: max-content; white-space: nowrap; }
 .ml-downtime-location-management { justify-content: space-between; }
 .ml-downtime-location-management :where(h2, p) { margin-block: 0; }
 .ml-source-item-summary { justify-content: space-between; }

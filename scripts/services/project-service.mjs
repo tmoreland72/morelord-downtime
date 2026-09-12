@@ -75,7 +75,7 @@ export class ProjectService {
     return true;
   }
 
-  async removeUnused(id) {
+  async removeUnused(id, { allowCancelled = false } = {}) {
     this.#requireGm();
     const state = await this.repository.read();
     const project = state.projects[String(id)];
@@ -85,7 +85,7 @@ export class ProjectService {
       || project.participants.some(participant => participant.hoursContributed > 0)
       || Object.values(state.segments).some(segment => segment.allocations.some(allocation => allocation.projectId === project.id))
       || project.history.some(entry => !["created", "updated", "cancelled"].includes(entry.type));
-    if (hasProgress) throw new Error("A Project with recorded progress cannot be deleted. Cancel it to preserve its history.");
+    if (hasProgress && !(allowCancelled && project.status === "cancelled")) throw new Error("A Project with recorded progress must be cancelled before it can be deleted.");
     delete state.projects[project.id];
     for (const session of Object.values(state.sessions)) {
       session.plannedProjectIds = (session.plannedProjectIds ?? []).filter(projectId => projectId !== project.id);

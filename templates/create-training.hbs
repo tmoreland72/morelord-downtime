@@ -16,5 +16,5 @@
     </div>
     <button type="button" data-action="selectTraining"><i class="fa-solid fa-list-check"></i> Select Training</button>
   </div>
-  <div class="ml-actions"><button type="button" data-action="create"><i class="fa-solid fa-floppy-disk"></i> {{#if isEditing}}Save Project{{else}}Start Training{{/if}}</button></div>
+  <footer class="ml-page-footer ml-actions">{{#if canCancelProject}}<button type="button" data-action="cancelProject" data-tone="danger"><i class="fa-solid fa-ban"></i> Cancel Project</button>{{/if}}{{#if canDeleteProject}}<button type="button" data-action="deleteProject" data-tone="danger"><i class="fa-solid fa-trash"></i> Delete Project</button>{{/if}}<button type="button" data-action="create"><i class="fa-solid fa-floppy-disk"></i> {{#if isEditing}}Save Project{{else}}Start Training{{/if}}</button></footer>
 </section>
