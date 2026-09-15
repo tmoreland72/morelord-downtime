@@ -1,3 +1,4 @@
+import { trainingDefault } from "../../domain/project-defaults.mjs";
 import { createProject } from "../../domain/project.mjs";
 
 export const TRAINING_ACTIVITY_ID = "training";
@@ -37,7 +38,7 @@ export function createTrainingProject(data = {}, options = {}) {
     status: data.status ?? "active",
     progress: {
       mode: "effort",
-      effort: { requiredHours: Number(data.requiredHours ?? 120), completedHours: Number(data.completedHours ?? 0) }
+      effort: { requiredHours: Number(data.requiredHours ?? trainingDefault(kind, data.intelligenceModifier).hours), completedHours: Number(data.completedHours ?? 0) }
     },
     metadata: {
       ...(data.metadata ?? {}),

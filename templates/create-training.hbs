@@ -5,7 +5,6 @@
     <label><span>Instructor</span><select name="instructorSelection"><option value="">Choose an instructor</option><option value="npc" {{#if npcInstructor}}selected{{/if}}>NPC</option>{{#each instructors}}<option value="{{uuid}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
     <label data-npc-instructor {{#unless npcInstructor}}hidden{{/unless}}><span>NPC Instructor Name</span><input name="npcInstructorName" type="text" value="{{npcInstructorName}}" placeholder="Who is providing the training?"></label>
     <label><span>Project Location (Optional)</span><select name="locationId"><option value="">No fixed Location</option>{{#each locations}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
-    <label><span>Required Hours</span><input name="requiredHours" type="number" min="1" step="1" value="{{#if project}}{{project.progress.effort.requiredHours}}{{else}}120{{/if}}"></label>
   </div>
   <div class="ml-training-choice">
     <span>Training</span>
@@ -16,5 +15,6 @@
     </div>
     <button type="button" data-action="selectTraining"><i class="fa-solid fa-list-check"></i> Select Training</button>
   </div>
+  <div data-training-hours {{#unless selectedTraining}}hidden{{/unless}}><label><span>Required Hours (GM Adjustable)</span><input name="requiredHours" type="number" min="1" step="1" value="{{requiredHours}}"></label><p class="notes" data-training-guidance>{{trainingGuidance}}</p></div>
   <footer class="ml-page-footer ml-actions">{{#if canCancelProject}}<button type="button" data-action="cancelProject" data-tone="danger"><i class="fa-solid fa-ban"></i> Cancel Project</button>{{/if}}{{#if canDeleteProject}}<button type="button" data-action="deleteProject" data-tone="danger"><i class="fa-solid fa-trash"></i> Delete Project</button>{{/if}}<button type="button" data-action="create"><i class="fa-solid fa-floppy-disk"></i> {{#if isEditing}}Save Project{{else}}Start Training{{/if}}</button></footer>
 </section>

@@ -26,6 +26,7 @@ export function createCommissionProject(data = {}, options = {}) {
       ...(data.metadata ?? {}),
       commission: {
         contractorName,
+        itemUuid: String(data.itemUuid ?? data.metadata?.commission?.itemUuid ?? ""),
         itemDescription,
         notes: String(data.notes ?? "")
       }

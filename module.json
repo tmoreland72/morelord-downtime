@@ -5,13 +5,13 @@
   "description": "Persistent, location-aware downtime Projects and campaign-time orchestration for the Morelord suite.",
   "version": "0.1.0",
   "authors": [{ "name": "Morelord Gaming" }],
-  "compatibility": { "minimum": "14", "verified": "14", "maximum": "14" },
+  "compatibility": { "minimum": "14", "verified": "14.367", "maximum": "14" },
   "esmodules": ["scripts/main.mjs"],
   "styles": ["styles/morelord-downtime.css"],
   "relationships": {
     "systems": [{ "id": "dnd5e", "type": "system", "compatibility": { "minimum": "5.3" } }],
     "requires": [
-      { "id": "morelord-core", "type": "module", "compatibility": { "minimum": "0.3.0" }, "manifest": "https://raw.githubusercontent.com/tmoreland72/morelord-core/main/module.json" }
+      { "id": "morelord-core", "type": "module", "compatibility": { "minimum": "0.3.9" }, "manifest": "https://raw.githubusercontent.com/tmoreland72/morelord-core/main/module.json" }
     ],
     "recommends": [
       { "id": "morelord-journeys", "type": "module", "compatibility": { "minimum": "0.2.1" }, "manifest": "https://raw.githubusercontent.com/tmoreland72/morelord-journeys/main/module.json" },

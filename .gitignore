@@ -1,3 +1,5 @@
 morelord-downtime.zip
 node_modules/
 tmp/
+.env
+.release-*

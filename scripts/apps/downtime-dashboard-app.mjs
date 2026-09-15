@@ -1,3 +1,4 @@
+import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-participation.js";
 import { projectManagementActions } from "./project-management.mjs";
 import { NewProjectApp, SessionEditorApp } from "./creation-apps.mjs";
 import { ProjectDetailApp, SessionDetailApp } from "./detail-apps.mjs";
@@ -69,7 +70,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
     const { projects, segments, sessions, locations, activities, craftworksProjects } = this.constructor.services;
     const [allProjects, allSegments, allSessions] = await Promise.all([projects.list(), segments.list(), sessions.list()]);
     const isGm = game.user.isGM;
-    const ownedActorUuids = new Set(Array.from(game.actors ?? []).filter(actor => actor.type === "character" && actor.isOwner).map(actor => actor.uuid));
+    const ownedActorUuids = new Set(listCharacterActors({ ownedOnly: true }).map(actor => actor.uuid));
     const isParticipant = entries => entries.some(entry => ownedActorUuids.has(entry.actorUuid));
     const openSegments = allSegments.filter(segment => segment.status === "open" && (isGm || isParticipant(segment.participants)));
     const locationRecords = locations()?.list?.() ?? [];
@@ -89,7 +90,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
       : activeOpportunity
         ? { id: "road", name: "On the Road", settlementType: "road", capabilities: [] }
         : locations()?.current?.() ?? null;
-    const craftingActors = Array.from(game.actors ?? []).filter(actor => actor.type === "character" && (isGm || actor.isOwner));
+    const craftingActors = listCharacterActors({ ownedOnly: !isGm });
     const externalProjects = await craftworksProjects.list({
       actors: craftingActors,
       locationName: activeLocation?.name ?? "Current Location",

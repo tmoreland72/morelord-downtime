@@ -55,6 +55,7 @@ export const DOWNTIME_DOCUMENTATION = Object.freeze({
         "Tools: select the specific proficiency, including artisan, gaming, musical, and thieves’ tools.",
         "Skills and armor: select the specific skill, armor category, shield, or individual armor proficiency.",
         "Languages: select the specific language.",
+        "Estimates appear after selection. Languages and tools use (10 minus positive Intelligence modifier) workweeks of 40 hours, with a one-workweek floor. Other proficiencies and masteries use that baseline as GM-defined guidance. The GM may adjust estimates; existing saved durations are preserved.",
         "Weapon proficiencies: select the specific weapon.",
         "Weapon masteries: select the specific weapon mastery.",
         "The student and instructor must be different characters; character instructors contribute the same training hours as the student.",
@@ -68,6 +69,7 @@ export const DOWNTIME_DOCUMENTATION = Object.freeze({
       introduction: "A Commission tracks work performed by a contractor as campaign days pass.",
       bullets: [
         "Record the contractor, their Location, the commissioned item, total labor days, and payment or material notes.",
+        "Select Item searches enabled compendiums through Core and retains the item UUID. Editable estimates use rarity or mundane list price; scrolls and artifacts need a manual estimate. Selecting an item does not automatically purchase, craft, or deliver it.",
         "Commissions do not consume Downtime Session hours and cannot be planned into a Session.",
         "Each authoritative new-day event advances active Commission work by one day.",
         "After the final labor day, the Commission waits for collection at the contractor's Location."

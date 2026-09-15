@@ -1,3 +1,4 @@
+import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-participation.js";
 import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { titleCase } from "../ui/formatting.mjs";
@@ -80,7 +81,7 @@ export class ProjectDetailApp extends DetailApplication {
     const commission = project.metadata?.commission;
     const sourceItem = project.metadata?.sourceItem;
     const locations = this.constructor.services.locations()?.list?.() ?? [];
-    const ownedActorUuids = new Set(Array.from(game.actors ?? []).filter(actor => actor.type === "character" && actor.isOwner).map(actor => actor.uuid));
+    const ownedActorUuids = new Set(listCharacterActors({ ownedOnly: true }).map(actor => actor.uuid));
     const activeSessions = await this.constructor.services.sessions.list({ status: "active" });
     const openPools = (await this.constructor.services.segments.list({ status: "open" }))
       .filter(pool => game.user.isGM || pool.participants.some(participant => ownedActorUuids.has(participant.actorUuid)))

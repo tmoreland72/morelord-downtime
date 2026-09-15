@@ -1,3 +1,6 @@
+import { ItemPickerApp } from "../../../morelord-core/scripts/ui/item-picker-app.js";
+import { trainingDefault, commissionDefault } from "../domain/project-defaults.mjs";
+import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-participation.js";
 import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { DowntimeApplication } from "./downtime-application.mjs";
 import { getCoreParticipation } from "../integrations/core-api.mjs";
@@ -123,7 +126,7 @@ export class TrainingProjectApp extends DowntimeApplication {
   async _prepareContext(options) {
     const project = this.projectId ? await this.constructor.services.projects.get(this.projectId) : null;
     const training = project?.metadata?.training ?? null;
-    const actors = Array.from(game.actors ?? []).filter(actor => actor.type === "character");
+    const actors = listCharacterActors();
     const trainingChoices = (await this.constructor.services.proficiencies.listTrainingChoices({ actors })).map(choice => ({
       ...choice,
       selected: training?.kind === choice.kind && training?.proficiencyId === choice.id
@@ -152,7 +155,9 @@ export class TrainingProjectApp extends DowntimeApplication {
       npcInstructor: instructorSelection === "npc",
       npcInstructorName: training?.instructor?.name ?? "",
       locations: (this.constructor.services.locations()?.list?.() ?? []).map(location => ({ ...location, selected: location.id === project?.locationId })),
-      selectedTraining
+      selectedTraining,
+      requiredHours: project?.progress?.effort?.requiredHours ?? "",
+      trainingGuidance: selectedTraining ? trainingDefault(selectedTraining.kind, game.actors.get(defaultStudentUuid.split(".").at(-1))?.system?.abilities?.int?.mod).guidance : ""
     };
   }
 
@@ -164,8 +169,23 @@ export class TrainingProjectApp extends DowntimeApplication {
       const selection = instructor?.value ?? "";
       if (npcField) npcField.hidden = selection !== "npc";
     };
+    this.element.querySelector('[name="ownerUuid"]')?.addEventListener("change", () => {
+      if (!this.projectId && !this.trainingHoursEdited) this.updateTrainingDefault();
+    });
+    this.element.querySelector('[name="requiredHours"]')?.addEventListener("input", () => { this.trainingHoursEdited = true; });
     instructor?.addEventListener("change", refresh);
     refresh();
+  }
+
+  updateTrainingDefault() {
+    const choice = this.trainingCatalog.find(item => item.value === this.selectedTrainingValue);
+    if (!choice) return;
+    const ownerUuid = this.element.querySelector('[name="ownerUuid"]')?.value ?? "";
+    const actor = game.actors.get(ownerUuid.split(".").at(-1));
+    const defaults = trainingDefault(choice.kind, actor?.system?.abilities?.int?.mod);
+    this.element.querySelector("[data-training-hours]").hidden = false;
+    this.element.querySelector('[name="requiredHours"]').value = defaults.hours;
+    this.element.querySelector("[data-training-guidance]").textContent = defaults.guidance;
   }
 
   static selectTraining(event) {
@@ -185,6 +205,8 @@ export class TrainingProjectApp extends DowntimeApplication {
         const category = this.element.querySelector("[data-selected-training-category]");
         if (label) label.textContent = choice.label;
         if (category) category.textContent = choice.category;
+        this.trainingHoursEdited = false;
+        this.updateTrainingDefault();
       }
     }).render({ force: true });
   }
@@ -199,7 +221,7 @@ export class TrainingProjectApp extends DowntimeApplication {
       const instructorUuid = instructorSelection === "npc" ? null : instructorSelection;
       const npcInstructorName = String(form.get("npcInstructorName") ?? "").trim();
       const [kind, proficiencyId] = String(form.get("proficiency") ?? "").split(":", 2);
-      const requiredHours = Number(form.get("requiredHours") ?? 120);
+      const requiredHours = Number(form.get("requiredHours"));
       const selected = this.trainingCatalog.find(choice => choice.value === `${kind}:${proficiencyId}`);
       if (!ownerUuid || !instructorSelection) throw new Error("Choose both a student and an instructor.");
       if (instructorSelection === "npc" && !npcInstructorName) throw new Error("Enter the NPC instructor's name.");
@@ -239,7 +261,7 @@ export class CommissionProjectApp extends DowntimeApplication {
     position: { width: 680, height: "auto" },
     window: { title: "Commission Project", icon: "fa-solid fa-handshake", resizable: true },
     form: { closeOnSubmit: false },
-    actions: { ...projectManagementActions, save: CommissionProjectApp.save }
+    actions: { ...projectManagementActions, save: CommissionProjectApp.save, selectItem: CommissionProjectApp.selectItem }
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/create-commission.hbs" } };
 
@@ -261,10 +283,22 @@ export class CommissionProjectApp extends DowntimeApplication {
       isEditing: Boolean(project),
       project,
       commission: project?.metadata?.commission ?? {},
-      requiredDays: project?.progress?.elapsed?.requiredDays ?? 1,
+      requiredDays: project?.progress?.elapsed?.requiredDays ?? "",
       owners: owners.map(owner => ({ ...owner, selected: owner.uuid === defaultOwnerUuid })),
       locations: (this.constructor.services.locations()?.list?.() ?? []).map(location => ({ ...location, selected: location.id === project?.locationId }))
     };
+  }
+
+  static selectItem(event) {
+    event.preventDefault();
+    return new ItemPickerApp({ onSelect: item => {
+      const defaults = commissionDefault(item);
+      this.element.querySelector('[name="itemUuid"]').value = item.uuid;
+      this.element.querySelector('[name="itemDescription"]').value = item.name;
+      this.element.querySelector("[data-commission-item]").textContent = item.name;
+      this.element.querySelector('[name="requiredDays"]').value = defaults.days ?? "";
+      this.element.querySelector("[data-commission-guidance]").textContent = defaults.guidance;
+    } }).render({ force: true });
   }
 
   static async save(event, target) {
@@ -278,6 +312,7 @@ export class CommissionProjectApp extends DowntimeApplication {
         owner: { uuid: ownerUuid, name: game.actors.get(ownerUuid.split(".").at(-1))?.name ?? null },
         contractorName: String(form.get("contractorName") ?? ""),
         itemDescription: String(form.get("itemDescription") ?? ""),
+        itemUuid: String(form.get("itemUuid") ?? ""),
         locationId: String(form.get("locationId") ?? ""),
         requiredDays: Number(form.get("requiredDays") ?? 0),
         notes: String(form.get("notes") ?? "")

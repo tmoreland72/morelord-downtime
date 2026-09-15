@@ -12,8 +12,16 @@
 
 ## Brand and interface consistency
 
+- ALL Foundry UI in every Morelord module MUST use Core's shared components, styles, tokens, and UI functions. This applies to new and existing windows, dialogs, forms, cards, lists, chat output, and sheet integrations, including prototypes and unreleased modules.
 - Before UI work, read Morelord Core's `MORELORD-BRAND-GUIDE.md` (in Core's repository, or `../morelord-core/MORELORD-BRAND-GUIDE.md` from sibling module repositories).
-- Use Core's theme-aware tokens and shared controls, spacing, typography, and window styles. Keep Morelord interfaces visually and behaviorally consistent.
+- Use the appropriate Core component with its required markup, classes, and behavior. Adding `ml-*` classes or Core tokens to independently designed markup is not sufficient. Core is the source of truth; another module is only an example of consuming it, not a design system to copy.
+- Do not recreate, override, or patch shared UI in a feature module. If Core lacks a needed shared component or its component does not work correctly, add or fix it in Core, preserve existing consumers, and have the feature module consume that implementation.
+- Module-specific UI code may implement domain-specific layout and behavior only. Shared typography, surfaces, controls, spacing, states, and window behavior remain owned by Core. Ensure Core's assets and required UI initialization are actually loaded; do not compensate for missing integration with local styling.
+- Verify the rendered UI with Foundry and Core styles loaded, including relevant interactions and responsive behavior. Passing a class-name or design-system scan alone does not establish compliance. Report any live Foundry verification still outstanding.
+
+## Player roll requests
+
+- Every workflow that requests player rolls must let the GM roll for characters whose players are not logged in, including when a player disconnects with a request pending. Reuse Core's user/recipient routing, preserve the roll's visibility rules, and prevent duplicate resolution.
 
 ## Compatibility and existing world data
 
@@ -27,8 +35,11 @@
 
 ## Releases and documentation
 
+- Campaign Manager is inactive. Exclude it from active-module inventories, release checks, and development planning unless the user explicitly revives it.
+
 - Follow the affected repository's documented `release.ps1` workflow, `release.config.json`, and release-note conventions when preparing or publishing a requested release.
-- Character Export and Downtime are not production-ready and are currently excluded from standard release requirements. Both must still follow all shared UI and Core asset standards.
+- For every release, check the latest stable Foundry VTT version against official release information and verify module compatibility on that version. Update `module.json`'s `compatibility.verified` to the exact verified version/build before packaging, and publish matching compatibility metadata to the Foundry package release. Preserve supported minimum/maximum bounds unless intentionally changing support; do not claim untested compatibility. After publishing, verify the public manifest and Foundry release listing both reflect the updated compatibility, so stale metadata does not leave users with a compatibility-risk warning. Report any verification or publication blocker explicitly.
+- Character Export and Downtime follow the standard release requirements; all modules must follow shared UI and Core asset standards.
 - As part of every code change, review affected documentation and update it when behavior, UI, settings, APIs, dependencies, or workflows change. Include relevant READMEs, user guides, API examples, and release notes; update shared documentation in Core when applicable.
 - Keep public documentation aligned with actual implemented behavior and compatibility. Documentation review is part of completing the change, not something deferred until release.
 - In the completion summary, identify documentation updated or state why no update was needed.
@@ -36,5 +47,5 @@
 ## Maintaining these guidelines
 
 - Treat `morelord-core/AGENTS.md` as the canonical shared standard.
-- When updating shared guidelines, update Core's file first and copy it to the other Morelord repositories: Character Export, Craftworks, Downtime, Encounters, Journeys, and Marketplace.
+- When updating shared guidelines, update Core's file first and copy it to the other Morelord repositories: Character Export, Compendium, Craftworks, Downtime, Encounters, Journeys, and Marketplace.
 - Keep this file concise and reference existing documentation for details.
