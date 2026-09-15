@@ -8,9 +8,9 @@ Requires Morelord Core 0.3.9 or newer. Live Foundry 14.367 testing confirmed by 
 
 ### Added
 
-- Persistent Projects and downtime Sessions with GM-authoritative player requests, time allocation, and history.
-- Training with specific proficiency selections, instructors, editable estimates, and completion awards.
-- Commissions with Core item selection, editable labor estimates, and campaign-day progress.
-- Marketplace-backed Source Item Projects and Craftworks Project integration.
-- Shared Core Locations, character eligibility, interface components, and in-app documentation.
-- Standard Morelord release tooling and a versioned user guide.
+- [Premium] Persistent Projects and downtime Sessions with GM-authoritative player requests, time allocation, and history.
+- [Premium] Training with specific proficiency selections, instructors, editable estimates, and completion awards.
+- [Premium] Commissions with Core item selection, editable labor estimates, and campaign-day progress.
+- [Premium] Marketplace-backed Source Item Projects and Craftworks Project integration.
+- [Premium] Shared Core Locations, character eligibility, interface components, and in-app documentation.
+- [Premium] Standard Morelord release tooling and a versioned user guide.
