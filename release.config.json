@@ -22,5 +22,6 @@
     "LICENSE.md",
     "CHANGELOG.md"
   ],
-  "productDocumentationPath": "docs/README.md"
+  "productDocumentationPath": "docs/README.md",
+  "documentationWebsiteRepository": "tmoreland72/morelord-gaming-web"
 }

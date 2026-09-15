@@ -23,7 +23,7 @@ Use the intended version in both commands:
 
 A normal release validates documentation and notes, builds and verifies the ZIP, updates the manifest, commits and tags, pushes to GitHub, creates the GitHub Release, and publishes Foundry compatibility metadata and the Morelord website release entry. Dry runs do not publish or validate remote tokens. Drafts and prereleases skip Foundry and website publication.
 
-The user guide ships with the module and is version-checked. The docs directory is included; credentials, tests, and release tooling are excluded from the ZIP. Maintain the guide alongside the in-app help registered with Core.
+The user guide ships with the module and is version-checked. The docs directory is included; credentials, tests, and release tooling are excluded from the ZIP. Maintain the guide alongside the in-app help registered with Core. Website publication requests the website's `product-docs-updated` deployment workflow, which imports `docs/README.md` and lists the guide at `/docs/morelord-downtime`.
 
 ## Verify and recover
 
