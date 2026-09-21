@@ -3,7 +3,7 @@
   "type": "module",
   "title": "Morelord Downtime",
   "description": "Persistent, location-aware downtime Projects and campaign-time orchestration for the Morelord suite.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "authors": [
     {
       "name": "Morelord Gaming"
@@ -70,5 +70,5 @@
   "socket": true,
   "url": "https://github.com/tmoreland72/morelord-downtime",
   "manifest": "https://raw.githubusercontent.com/tmoreland72/morelord-downtime/main/module.json",
-  "download": "https://github.com/tmoreland72/morelord-downtime/releases/download/v0.1.0/morelord-downtime.zip"
+  "download": "https://github.com/tmoreland72/morelord-downtime/releases/download/v0.1.1/morelord-downtime.zip"
 }
