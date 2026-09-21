@@ -337,7 +337,7 @@ export class NewProjectApp extends DowntimeApplication {
     id: "morelord-downtime-new-project",
     classes: ["ml-window", "ml-downtime-module"],
     tag: "section",
-    position: { width: 620, height: "auto" },
+    position: { width: 620, height: 760 },
     window: { title: "New Project", icon: "fa-solid fa-folder-plus", resizable: true },
     actions: { choose: NewProjectApp.choose }
   };
@@ -346,7 +346,7 @@ export class NewProjectApp extends DowntimeApplication {
   async _prepareContext(options) {
     return {
       ...await super._prepareContext(options),
-      activityTypes: this.constructor.services.activities.list().filter(activity => activity.showInProjectCreation).map(activity => ({
+      activityTypes: this.constructor.services.activities.list({ availableOnly: true }).filter(activity => activity.showInProjectCreation).map(activity => ({
         id: activity.id,
         name: activity.name,
         icon: activity.icon,
@@ -360,6 +360,7 @@ export class NewProjectApp extends DowntimeApplication {
   static async choose(event, target) {
     event.preventDefault();
     const activity = this.constructor.services.activities.get(target.dataset.activityId);
+    if (!activity?.isAvailable()) return ui.notifications.warn("This activity's content pack is unavailable.");
     if (typeof activity?.launch !== "function") return ui.notifications.warn("This Project type does not have a creation workflow yet.");
     await this.close();
     return activity.launch();
@@ -395,7 +396,7 @@ export class SessionEditorApp extends DowntimeApplication {
       session,
       actors: characterChoices({ selectedUuids: session ? participantIds : null }),
       locations: (this.constructor.services.locations()?.list?.() ?? []).map(location => ({ ...location, selected: location.id === session?.locationId })),
-      activityTypes: this.constructor.services.activities.list().filter(activity => activity.availableInSessions).map(activity => ({ id: activity.id, name: activity.name, icon: activity.icon, checked: !session || activityIds.has(activity.id) }))
+      activityTypes: this.constructor.services.activities.list({ availableOnly: true }).filter(activity => activity.availableInSessions).map(activity => ({ id: activity.id, name: activity.name, icon: activity.icon, checked: !session || activityIds.has(activity.id) }))
     };
   }
 
@@ -406,6 +407,8 @@ export class SessionEditorApp extends DowntimeApplication {
     try {
       const actorUuids = selectedCharacterUuids(form);
       const plannedDurationHours = Number(form.get("plannedDurationHours") ?? 0);
+      const existing = this.sessionId ? await this.constructor.services.sessions.get(this.sessionId) : null;
+      const unavailableActivities = (existing?.availableActivities ?? []).filter(id => this.constructor.services.activities.get(id)?.isAvailable() === false);
       if (!actorUuids.length) throw new Error("Select at least one participant.");
       if (!Number.isFinite(plannedDurationHours) || plannedDurationHours <= 0) throw new Error("Planned duration must be greater than zero.");
       const data = {
@@ -415,7 +418,7 @@ export class SessionEditorApp extends DowntimeApplication {
         status: "draft",
         locationId: String(form.get("locationId") ?? "").trim() || null,
         plannedDurationHours,
-        availableActivities: form.getAll("availableActivities").map(String),
+        availableActivities: [...new Set([...form.getAll("availableActivities").map(String), ...unavailableActivities])],
         participants: participantRecords(actorUuids)
       };
       const session = this.sessionId

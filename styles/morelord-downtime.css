@@ -1,9 +1,6 @@
 /* Shared components and tokens are provided by Morelord Core; only Downtime layout belongs here. */
 .ml-downtime-project h3 { margin: 0; }
 .ml-downtime-allocation { display: grid; grid-template-columns: minmax(0, 1fr) 100px auto; gap: var(--ml-space-3); align-items: end; }
-.ml-history { display: grid; gap: var(--ml-space-2); margin: 0; padding-left: var(--ml-space-5); }
-.ml-history li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ml-space-2); align-items: baseline; }
-.ml-history code { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; }
 .ml-downtime-opportunity { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--ml-space-3); padding: var(--ml-space-3) var(--ml-space-4); }
 .ml-downtime-opportunity > i { font-size: 1.25rem; }
 .ml-downtime-opportunity p { margin: var(--ml-space-1) 0 0; }
@@ -39,8 +36,7 @@
 .ml-training-choice__value { display: grid; gap: var(--ml-space-1); }
 .ml-training-choice__value small { color: var(--ml-color-muted); }
 .ml-downtime-activity-cards { align-items: stretch; gap: var(--ml-space-3); }
-.ml-downtime-activity-card { flex: 1 1 18rem; min-width: min-content; }
-.ml-downtime-activity-card__action { margin-top: auto; min-width: max-content; white-space: nowrap; }
+.ml-downtime-activity-card__action { margin-top: auto; }
 .ml-downtime-location-management { justify-content: space-between; }
 .ml-downtime-location-management :where(h2, p) { margin-block: 0; }
 .ml-source-item-summary { justify-content: space-between; }
@@ -56,7 +52,6 @@
 .ml-source-item-chat__item > div { display: grid; }
 @media (max-width: 760px) {
   .ml-downtime-allocation { grid-template-columns: 1fr; }
-  .ml-history li { grid-template-columns: 1fr; }
   .ml-training-selection { grid-template-columns: 1fr; }
   .ml-training-selection__filters { border-right: 0; border-bottom: 1px solid var(--ml-color-border); }
 }

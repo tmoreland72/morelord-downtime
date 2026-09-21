@@ -2,14 +2,8 @@ import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-par
 import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { titleCase } from "../ui/formatting.mjs";
-import { getCoreApi } from "../integrations/core-api.mjs";
-
-const formatHistory = history => history.slice().reverse().map(entry => ({
-  ...entry,
-  label: titleCase(entry.type),
-  when: new Date(entry.at).toLocaleString(),
-  details: Object.keys(entry.data ?? {}).length ? JSON.stringify(entry.data) : null
-}));
+import { getCoreApi, getModuleApi } from "../integrations/core-api.mjs";
+import { formatHistory } from "../ui/history.mjs";
 
 class DetailApplication extends LiveDowntimeApplication {}
 
@@ -41,7 +35,7 @@ export class SessionDetailApp extends DetailApplication {
         locationName: locations.find(location => location.id === session.locationId)?.name ?? "No Location",
         participantSummary: session.participants.map(entry => entry.name ?? entry.actorUuid).join(", "),
         activitySummary: session.availableActivities.map(id => this.constructor.services.activities.get(id)?.name ?? titleCase(id)).join(", ") || "No new Projects",
-        history: formatHistory(session.history)
+        history: await formatHistory(session.history, this.constructor.services, session)
       }
     };
   }
@@ -62,6 +56,7 @@ export class ProjectDetailApp extends DetailApplication {
       planProject: ProjectDetailApp.planProject,
       negotiateSourceItem: ProjectDetailApp.negotiateSourceItem,
       openSourceItem: ProjectDetailApp.openSourceItem,
+      openResearchRecipe: ProjectDetailApp.openResearchRecipe,
       collectCommission: ProjectDetailApp.collectCommission
     }
   };
@@ -139,7 +134,7 @@ export class ProjectDetailApp extends DetailApplication {
           persuasionLabel: sourceItem.persuasion ? `${sourceItem.persuasion.total} (${sourceItem.persuasion.adjustment > 0 ? "+" : ""}${Math.round(sourceItem.persuasion.adjustment * 100)}%)` : null,
           canNegotiate: Boolean(sourceItem.outcome && !sourceItem.persuasion && canManage)
         } : null,
-        history: formatHistory(project.history)
+        history: await formatHistory(project.history, this.constructor.services, project)
       }
     };
   }
@@ -159,6 +154,16 @@ export class ProjectDetailApp extends DetailApplication {
       await this.render({ force: true });
     } catch (error) { ui.notifications.error(`Could not allocate hours: ${error.message}`); }
     finally { target.disabled = false; }
+  }
+
+  static async openResearchRecipe(event, target) {
+    event.preventDefault();
+    try {
+      const craftworks = getModuleApi("morelord-craftworks", "MorelordCraftworks");
+      if (!craftworks?.openRecipes) throw new Error("Morelord Craftworks is unavailable.");
+      const project = await this.constructor.services.projects.get(this.projectId);
+      return await craftworks.openRecipes({ recipeIds: [target.dataset.recipeId], crafterActorUuid: project.owner.uuid });
+    } catch (error) { ui.notifications.warn(error.message); }
   }
 
   static async planProject(event, target) {

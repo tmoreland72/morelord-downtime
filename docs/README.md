@@ -3,7 +3,7 @@ title: Morelord Downtime Documentation
 description: Manage persistent Projects, downtime Sessions, training, commissions, and item sourcing.
 slug: morelord-downtime
 product: morelord-downtime
-version: 0.1.0
+version: 0.1.1
 foundry: 14
 order: 0
 ---
@@ -36,6 +36,14 @@ Open Downtime to see Sessions and Projects relevant to characters you own. Creat
 
 ## Activities
 
+### Research Drakkenheim Recipes
+
+Choose a researcher and a monster component from their inventory or a party Group they belong to. Allocate one hour in a Session that allows **Research Drakkenheim Recipes**. The component must still be available; research does not consume it or request a skill check.
+
+Project Details saves up to five distinct random recipes matching the component's family and recipe rarity, using the same filters as the Recipes browser. Organ (Very Rare), for example, finds all four Very Rare Organ recipes in the complete catalog. Fewer than five matches returns all matches. Discoveries become known to all player characters. Completion stays in Downtime; **View Recipe** opens an individual result in the Craftworks Recipes browser. Research does not replace specialized ingredients needed for crafting.
+
+Research appears in New Project and Session activity choices only while the Drakkenheim content pack is enabled and accessible through Craftworks. Existing Projects, results, and saved Session selections are preserved when access is unavailable. Results persist across reloads; repeating research requires a new Project and may return recipes seen before.
+
 ### Training
 
 Select the student, exact proficiency or weapon mastery, and instructor. Character instructors must know the selected proficiency, must differ from the student, and contribute the same hours. An NPC instructor can be recorded by name and tied to a Location. Successful completion applies the proficiency to the student and records the outcome.
@@ -65,6 +73,8 @@ Use **Advance Day** in GM Operations to advance elapsed activities. Journeys can
 ## Cancel or delete a Project
 
 The GM or owning player can cancel or delete from the dashboard, details, or activity editor. Cancellation stops progress and retains the Project under **Show Completed**. Unused Projects can be deleted immediately; cancel Projects with progress before deleting them. Deletion permanently removes the Project and its history and clears planned Session links, while Session allocation records remain. Neither action refunds time or gold. Crafting Projects remain managed in Craftworks.
+
+Project and Session details show history newest first, with timestamps and readable descriptions of contributions, progress, outcomes, and changes. Linked characters, Projects, time pools, and Locations use their names when available; deleted references are marked unavailable. Existing saved history is displayed this way automatically, without rewriting records.
 
 ## Troubleshooting
 

@@ -18,6 +18,7 @@ export const DOWNTIME_DOCUMENTATION = Object.freeze({
       introduction: "Downtime separates the activity being pursued from the campaign opportunities used to pursue it.",
       bullets: [
         "Projects are persistent activities, such as learning a language or mastering a weapon. They retain progress until completed or cancelled.",
+        "Project and Session details show timestamped history in readable text, including progress, outcomes, changed fields, and referenced names. Existing saved history uses the same display automatically.",
         "Sessions are GM-managed downtime opportunities. They move from Draft to Upcoming to Active, then Finalized or Cancelled.",
         "Available time belongs to an active Session and is tracked separately for each participant.",
         "Allocations spend participant hours from the active Session and apply eligible progress to a Project.",
@@ -86,6 +87,14 @@ export const DOWNTIME_DOCUMENTATION = Object.freeze({
         "After resolution, the owner may attempt one raw Persuasion check. Its total may raise or lower every offer price by as much as 25 percent."
       ],
       callouts: [{ tone: "warning", icon: "fa-solid fa-coins", title: "Investment is spent immediately", body: "Starting the Project deducts the committed gold through Marketplace. It pays vendor and contractor fees and is not refunded if the requested item is not found. Later edits may add investment or weeks, but cannot reduce or redirect what was already committed." }]
+    },
+    {
+      id: "research", title: "Research Drakkenheim Recipes", icon: "fa-solid fa-book-open",
+      paragraphs: [
+        "Start a Research Drakkenheim Recipes Project, choose a researcher and a monster component from their own or party Group inventory, then allocate one hour in a Session that permits research. The component must remain available; it is not consumed and no skill check is required.",
+        "Research uses the Recipes browser's component-family and recipe-rarity filters. Completion saves up to five distinct random matches, or all matches when fewer than five exist, and marks them known for all player characters. Completion stays in Downtime; View Recipe opens a saved result in the Craftworks Recipes browser. Crafting still requires the recipe's exact ingredients.",
+        "Research appears in activity choices only with an enabled, accessible Drakkenheim content pack in Craftworks. Existing Projects, results, and saved Session choices are retained if access becomes unavailable."
+      ]
     },
     {
       id: "suite", title: "Morelord Suite Integration", icon: "fa-solid fa-puzzle-piece",

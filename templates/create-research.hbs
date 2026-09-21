@@ -1,0 +1,14 @@
+<section class="ml-app ml-app-shell ml-stack" data-gap="3">
+  <header class="ml-hero">
+    <i class="fa-solid fa-book-open ml-hero__icon"></i>
+    <div class="ml-hero__body"><h1>Research Drakkenheim Recipes</h1><p>Spend one hour studying a monster component to find up to five random recipes that use it.</p></div>
+  </header>
+  <section class="ml-surface ml-stack" data-gap="3">
+    <label class="ml-setting-row"><span>Researcher</span><select name="ownerUuid" required>{{#each owners}}<option value="{{uuid}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
+    {{#if components}}
+    <label class="ml-setting-row"><span>Monster Component</span><select name="componentUuid" required>{{#each components}}<option value="{{uuid}}">{{name}} — {{inventoryName}}</option>{{/each}}</select></label>
+    {{else}}<p class="ml-empty-message">{{#if error}}{{error}}{{else}}No monster components are available in this character's or party's inventory.{{/if}}</p>{{/if}}
+    <p class="notes">Includes inventory from parties this character belongs to. Research does not consume the component. Results are saved in Project Details.</p>
+  </section>
+  <footer class="ml-page-footer ml-actions"><button type="button" data-action="create" {{#unless canCreate}}disabled{{/unless}}><i class="fa-solid fa-plus"></i> Start Research</button></footer>
+</section>

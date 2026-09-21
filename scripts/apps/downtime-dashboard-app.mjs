@@ -99,7 +99,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
     const opportunitySegments = activeOpportunity
       ? openSegments.filter(segment => segment.metadata?.sessionId === activeOpportunity.id)
       : [];
-    const activityTypes = activities.list()
+    const activityTypes = activities.list({ availableOnly: true })
       .map(activity => ({ id: activity.id, name: activity.name, icon: activity.icon, description: activity.description }));
     const opportunity = opportunitySegments.reduce((summary, segment) => {
       for (const participant of segment.participants.filter(entry => ownedActorUuids.has(entry.actorUuid))) {

@@ -11,7 +11,7 @@
   ],
   "compatibility": {
     "minimum": "14",
-    "verified": "14.367",
+    "verified": "14.368",
     "maximum": "14"
   },
   "esmodules": [
@@ -35,7 +35,7 @@
         "id": "morelord-core",
         "type": "module",
         "compatibility": {
-          "minimum": "0.3.9"
+          "minimum": "0.3.10"
         },
         "manifest": "https://raw.githubusercontent.com/tmoreland72/morelord-core/main/module.json"
       }

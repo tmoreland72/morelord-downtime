@@ -1,9 +1,9 @@
-<section class="ml-app ml-stack" data-gap="3">
+<section class="ml-app ml-app-shell ml-stack" data-gap="3">
   <header class="ml-hero">
     <i class="fa-solid fa-folder-plus ml-hero__icon"></i>
     <div class="ml-hero__body"><h1>New Project</h1><p>Choose the kind of long-term activity this Project will track.</p></div>
   </header>
-  <div class="ml-cluster ml-downtime-activity-cards">
+  <div class="ml-grid ml-downtime-activity-cards" data-columns="2">
     {{#each activityTypes}}<article class="ml-card ml-stack ml-downtime-activity-card" data-gap="2">
       <i class="{{icon}} ml-hero__icon"></i>
       <div><h2>{{name}}</h2><p>{{description}}</p></div>

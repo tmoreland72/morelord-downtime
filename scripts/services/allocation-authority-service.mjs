@@ -3,13 +3,14 @@ import { MODULE_ID } from "../constants.mjs";
 const CHANNEL = `module.${MODULE_ID}`;
 
 export class AllocationAuthorityService {
-  constructor({ segments, projects, sessions, isPrimaryGm, getTraining = () => null, getCommission = () => null, getSourceItem = () => null, timeoutMs = 10000 }) {
+  constructor({ segments, projects, sessions, isPrimaryGm, getTraining = () => null, getCommission = () => null, getSourceItem = () => null, getResearch = () => null, timeoutMs = 10000 }) {
     this.segments = segments;
     this.projects = projects;
     this.sessions = sessions;
     this.getTraining = getTraining;
     this.getCommission = getCommission;
     this.getSourceItem = getSourceItem;
+    this.getResearch = getResearch;
     this.isPrimaryGm = isPrimaryGm;
     this.timeoutMs = timeoutMs;
     this.pending = new Map();
@@ -49,6 +50,11 @@ export class AllocationAuthorityService {
   async createSourceItem(input) {
     if (game.user.isGM) return this.getSourceItem().createProject(input);
     return this.#request("sourceItem", input);
+  }
+
+  async createResearch(input) {
+    if (game.user.isGM) return this.getResearch().createProject(input);
+    return this.#request("research", input);
   }
 
   async updateSourceItem(projectId, input) {
@@ -129,6 +135,9 @@ export class AllocationAuthorityService {
         await this.#authorizeProjectOwner(message.userId, message.input.projectId);
         await this.#authorizeOwnedActor(message.userId, message.input.input.owner?.uuid);
         result = await this.getCommission().updateProject(message.input.projectId, message.input.input);
+      } else if (kind === "research") {
+        await this.#authorizeOwnedActor(message.userId, message.input.owner?.uuid);
+        result = await this.getResearch().createProject(message.input);
       } else if (kind === "sourceItem") {
         await this.#authorizeOwnedActor(message.userId, message.input.owner?.uuid);
         result = await this.getSourceItem().createProject(message.input);

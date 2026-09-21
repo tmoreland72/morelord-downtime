@@ -16,6 +16,7 @@ export class ActivityRegistry {
       actionIcon: String(definition.actionIcon ?? "fa-solid fa-plus"),
       showInProjectCreation: definition.showInProjectCreation !== false,
       availableInSessions: definition.availableInSessions !== false,
+      isAvailable: definition.isAvailable ?? (() => true),
       createProject: definition.createProject ?? null,
       canStart: definition.canStart ?? (() => ({ passed: true, reasons: [] })),
       canProgress: definition.canProgress ?? (() => ({ passed: true, reasons: [] })),
@@ -30,5 +31,7 @@ export class ActivityRegistry {
   }
 
   get(id) { return this.#activities.get(String(id)) ?? null; }
-  list() { return Array.from(this.#activities.values()); }
+  list({ availableOnly = false } = {}) {
+    return Array.from(this.#activities.values()).filter(activity => !availableOnly || activity.isAvailable());
+  }
 }

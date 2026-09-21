@@ -21,6 +21,8 @@ import { SOURCE_ITEM_ACTIVITY_ID, createSourceItemProject, sourceItemSummary } f
 import { SourceItemResolutionService } from "./activities/source-item/source-item-resolution-service.mjs";
 import { SourceItemProjectApp } from "./apps/source-item-app.mjs";
 import { MarketplaceSourcingAdapter } from "./adapters/marketplace-sourcing-adapter.mjs";
+import { RESEARCH_ACTIVITY_ID, RecipeResearchService } from "./activities/research/research-activity.mjs";
+import { ResearchProjectApp } from "./apps/research-project-app.mjs";
 
 const repository = new ProjectRepository();
 const activities = new ActivityRegistry();
@@ -30,6 +32,10 @@ const craftworksProjects = new CraftworksProjectAdapter();
 const marketplaceSourcing = new MarketplaceSourcingAdapter();
 const sourceItemResolution = new SourceItemResolutionService({ catalog: marketplaceSourcing });
 const trainingAwards = new TrainingAwardService({ proficiencyAdapter: proficiencies });
+const research = new RecipeResearchService();
+const researchApi = {
+  createProject: async data => projects.create(await research.createProject(data, { idFactory: () => foundry.utils.randomID() }))
+};
 let dashboardApp = null;
 let trainingApi = null;
 let commissionApi = null;
@@ -61,7 +67,8 @@ const allocationAuthority = new AllocationAuthorityService({
   isPrimaryGm: () => isPrimaryActiveGm(),
   getTraining: () => trainingApi,
   getCommission: () => commissionApi,
-  getSourceItem: () => sourceItemApi
+  getSourceItem: () => sourceItemApi,
+  getResearch: () => researchApi
 });
 
 function isPrimaryActiveGm() {
@@ -117,6 +124,17 @@ Hooks.on("getSceneControlButtons", controls => {
 Hooks.once("ready", () => {
   getCoreApi()?.ui?.documentation?.register(DOWNTIME_DOCUMENTATION);
   const coreLocations = () => getCoreLocations();
+  activities.register({
+    id: RESEARCH_ACTIVITY_ID,
+    isAvailable: () => research.isAvailable(),
+    name: "Research Drakkenheim Recipes",
+    icon: "fa-solid fa-book-open",
+    description: "Study a monster component from character or party inventory for one hour to find up to five random recipes that use it.",
+    launch: () => new ResearchProjectApp().render({ force: true }),
+    createProject: data => research.createProject(data, { idFactory: () => foundry.utils.randomID() }),
+    canProgress: (project, context) => research.canProgress(project, context),
+    onComplete: project => research.complete(project)
+  });
   activities.register({
     id: TRAINING_ACTIVITY_ID,
     name: "Training",
@@ -284,6 +302,7 @@ Hooks.once("ready", () => {
     onCreated: () => dashboardApp?.render({ force: true })
   });
   NewProjectApp.configure({ activities });
+  ResearchProjectApp.configure({ research, allocationAuthority, onCreated: () => dashboardApp?.render({ force: true }) });
   SessionEditorApp.configure({
     sessions,
     activities,
@@ -292,12 +311,17 @@ Hooks.once("ready", () => {
       return dashboardApp?.render({ force: true });
     }
   });
-  SessionDetailApp.configure({ sessions, locations: coreLocations, activities });
+  SessionDetailApp.configure({ sessions, projects, segments, locations: coreLocations, activities });
   ProjectDetailApp.configure({ projects, segments, sessions, activities, locations: coreLocations, allocationAuthority });
   const open = async () => {
     if (!dashboardApp) dashboardApp = new DowntimeDashboardApp();
     return dashboardApp.render({ force: true });
   };
+  const telemetry = globalThis.MorelordCore?.telemetry;
+  telemetry?.windows(MODULE_ID, { "morelord-downtime-dashboard": "dashboard.opened", "morelord-downtime-create-training": "training.opened", "morelord-downtime-source-item": "sourcing.opened", "morelord-downtime-create-research": "research.opened" });
+  telemetry?.observe(MODULE_ID, projects, { create: "project.create", collect: "project.collect", cancel: "project.cancel" });
+  telemetry?.observe(MODULE_ID, sessions, { create: "session.create", start: "session.start", finalize: "session.finalize" });
+  telemetry?.observe(MODULE_ID, segments, { allocate: "time.allocate" });
   const api = Object.freeze({
     open,
     registerActivity: definition => activities.register(definition),
@@ -348,6 +372,7 @@ Hooks.once("ready", () => {
     cancellations: Object.freeze({ cancelProject: projectId => allocationAuthority.cancelProject(projectId) }),
     deletions: Object.freeze({ deleteProject: projectId => allocationAuthority.deleteProject(projectId) }),
     training: Object.freeze({ createProject: data => allocationAuthority.createTraining(data), canProgress: canProgressTraining }),
+    research: Object.freeze({ createProject: data => allocationAuthority.createResearch(data) }),
     sourceItem: Object.freeze({
       createProject: data => allocationAuthority.createSourceItem(data),
       negotiate: projectId => allocationAuthority.negotiateSourceItem(projectId)
