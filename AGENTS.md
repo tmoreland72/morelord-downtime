@@ -30,6 +30,8 @@
 
 ## Verification
 
+- Before any in-Foundry testing, verify the loaded world ID is `dev1` (Dev1). If another world is loaded, or its identity cannot be verified, skip all in-Foundry testing without switching worlds. An explicit user instruction to skip testing takes precedence even in Dev1.
+
 - Every in-game bug fix must include a repeatable in-game regression test that reproduces the bug and verifies the corrected behavior. Follow Core's `IN-GAME-TESTING.md`, reuse its shared runner, and keep module-specific tests in the owning module. Run the test in Foundry and report the result or any verification blocker.
 - When changing Core, identify and check the modules that consume the changed functionality.
 - Run relevant existing tests and, for shared UI changes, Core's `npm run check:design-system`. Clearly report anything that still needs live Foundry verification.
