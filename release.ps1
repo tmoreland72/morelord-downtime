@@ -250,6 +250,7 @@ function Update-ManifestFile {
     Set-JsonProperty -Object $Manifest -Name 'download' -Value $DownloadUrl
     Set-JsonProperty -Object $Manifest -Name 'url' -Value $RepositoryUrl
     Set-JsonProperty -Object $Manifest -Name 'manifest' -Value $ManifestUrl
+    Set-JsonProperty -Object $Manifest -Name 'changelog' -Value "$RepositoryUrl/releases"
     Write-Utf8NoBom -Path $Path -Text ($Manifest | ConvertTo-Json -Depth 100)
     Assert-Utf8JsonFile -Path $Path
 }
@@ -258,7 +259,7 @@ function Copy-ReleaseContent {
     param(
         [Parameter(Mandatory = $true)][string]$Destination,
         [Parameter(Mandatory = $true)][string[]]$RequiredPaths,
-        [Parameter(Mandatory = $true)][string[]]$OptionalPaths
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$OptionalPaths
     )
     foreach ($RelativePath in $RequiredPaths) {
         if (-not (Test-Path (Join-Path $ProjectRoot $RelativePath))) {
@@ -310,7 +311,7 @@ function Assert-Archive {
             }
         }
         $ForbiddenPatterns = @(
-            '^\.git/', '^\.github/', '^\.vscode/', '^node_modules/', '^\.release-',
+            '^\.git/', '^\.github/', '^\.vscode/', '^node_modules/', '^\.release-', '^tmp/', '^release-notes/',
             '(^|/)release\.ps1$', '(^|/)release\.config\.json$', '\.zip$', '\.log$',
             '(^|/)\.DS_Store$', '(^|/)Thumbs\.db$', '^RELEASE-NOTES-'
         )
@@ -543,7 +544,7 @@ if ([string]::IsNullOrWhiteSpace($WebsiteToken)) {
 if ([string]::IsNullOrWhiteSpace($FoundryToken)) {
     $FoundryToken = $env:FOUNDRY_RELEASE_TOKEN
 }
-if ([string]::IsNullOrWhiteSpace($ReleaseNotesPath)) { $ReleaseNotesPath = Join-Path $ProjectRoot "RELEASE-NOTES-$Version.md" }
+if ([string]::IsNullOrWhiteSpace($ReleaseNotesPath)) { $ReleaseNotesPath = Join-Path $ProjectRoot "release-notes/RELEASE-NOTES-$Version.md" }
 elseif (-not [System.IO.Path]::IsPathRooted($ReleaseNotesPath)) { $ReleaseNotesPath = Join-Path $ProjectRoot $ReleaseNotesPath }
 $ProductDocumentationPath = if ([string]::IsNullOrWhiteSpace($ProductDocumentationRelativePath)) { '' } else { Join-Path $ProjectRoot $ProductDocumentationRelativePath }
 
@@ -553,9 +554,11 @@ $ManifestUrl = "https://raw.githubusercontent.com/$Repository/$ReleaseBranch/mod
 $VersionManifestUrl = "https://raw.githubusercontent.com/$Repository/$Tag/module.json"
 $DownloadUrl = "https://github.com/$Repository/releases/download/$Tag/$ArchiveName"
 $GitHubReleaseUrl = "https://github.com/$Repository/releases/tag/$Tag"
-$ArchivePath = Join-Path $ProjectRoot $ArchiveName
-$StagingPath = Join-Path ([System.IO.Path]::GetTempPath()) ("$ModuleId-release-" + [guid]::NewGuid().ToString('N'))
-$DryRunArchivePath = Join-Path ([System.IO.Path]::GetTempPath()) ("$ModuleId-dry-run-" + [guid]::NewGuid().ToString('N') + '.zip')
+$ArchivePath = Join-Path (Join-Path $ProjectRoot 'tmp') $ArchiveName
+$WorkingPath = Join-Path $ProjectRoot 'tmp'
+New-Item -ItemType Directory -Path $WorkingPath -Force | Out-Null
+$StagingPath = Join-Path $WorkingPath ("$ModuleId-release-" + [guid]::NewGuid().ToString('N'))
+$DryRunArchivePath = Join-Path $WorkingPath ("$ModuleId-dry-run-" + [guid]::NewGuid().ToString('N') + '.zip')
 $ShouldPublishWebsite = -not $SkipWebsitePublish -and -not $Draft -and -not $Prerelease
 $ShouldPublishFoundry = -not $SkipFoundryPublish -and -not $Draft -and -not $Prerelease
 if ($WebsiteOnly) { $ShouldPublishWebsite = $true }

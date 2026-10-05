@@ -38,6 +38,8 @@
 
 ## Releases and documentation
 
+- Keep release notes and changelogs in `release-notes/`. Put temporary scripts, staging folders, browser profiles, and other working files in the owning module's `/tmp/` directory; ignore `/tmp/` in Git and exclude it from release archives. Preserve permanent source, documentation, and regression evidence.
+
 - Campaign Manager is inactive. Exclude it from active-module inventories, release checks, and development planning unless the user explicitly revives it.
 
 - Follow the affected repository's documented `release.ps1` workflow, `release.config.json`, and release-note conventions when preparing or publishing a requested release.
@@ -45,6 +47,8 @@
 - Character Export and Downtime follow the standard release requirements; all modules must follow shared UI and Core asset standards.
 - As part of every code change, review affected documentation and update it when behavior, UI, settings, APIs, dependencies, or workflows change. Include relevant READMEs, user guides, API examples, and release notes; update shared documentation in Core when applicable.
 - Keep public documentation aligned with actual implemented behavior and compatibility. Documentation review is part of completing the change, not something deferred until release.
+- Document every player-visible and GM-visible page, including each module's Game Settings: explain every field and action using its exact UI label, accepted values/defaults, dependencies, and effect. Put examples in documentation, not helper text. Keep essential UI help concise; Shop Manager uses documentation instead of helper paragraphs. Check field coverage whenever a page or setting changes.
+- Documentation buttons use Core to open the actual module documentation on the Morelord Gaming website in a new browser tab. Keep one documentation source; do not maintain separate in-game summaries.
 - In the completion summary, identify documentation updated or state why no update was needed.
 
 ## Demo videos
@@ -57,3 +61,4 @@
 - Treat `morelord-core/AGENTS.md` as the canonical shared standard.
 - When updating shared guidelines, update Core's file first and copy it to the other Morelord repositories: Character Export, Compendium, Craftworks, Downtime, Encounters, Journeys, and Marketplace.
 - Keep this file concise and reference existing documentation for details.
+

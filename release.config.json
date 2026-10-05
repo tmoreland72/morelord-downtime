@@ -19,8 +19,7 @@
     "assets",
     "lang",
     "LICENSE",
-    "LICENSE.md",
-    "CHANGELOG.md"
+    "LICENSE.md"
   ],
   "productDocumentationPath": "docs/README.md",
   "documentationWebsiteRepository": "tmoreland72/morelord-gaming-web"
