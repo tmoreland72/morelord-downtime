@@ -1,0 +1,30 @@
+# Morelord Downtime Changelog
+
+## 0.1.2
+
+### Improvements
+
+- Documentation opens the combined GM and player guide through Core.
+- Added a manifest changelog link and moved release history into `release-notes/`. Local working files belong in ignored `/tmp/`.
+
+- Release staging and generated ZIP files use module-local `/tmp/`; ZIP validation rejects working files and release-note sources.
+
+## 0.1.1
+
+### Improvements
+
+- [Premium] Project and Session history now display readable progress, outcomes, changed fields, and referenced names instead of JSON. Existing saved records are formatted when viewed and remain unchanged.
+- [Premium] Research requires an enabled, accessible Drakkenheim pack, matches the Recipes browser's family/rarity filters, and marks discoveries known to every player character. Completion stays in Downtime; clicking a result opens Recipes rather than Craft. New Project uses equal-width card columns; Session activity labels wrap without overlap through Core's shared checkbox grid.
+- [Premium] Added optional feature/error instrumentation through Core's shared reporting service. Fresh GM consent is required; account connection is not. Existing Core dependencies and game behavior are unchanged.
+- [Premium] Added Research Drakkenheim Recipes: a one-hour Project using a monster component from personal or party inventory, saving up to five random matching recipes without consuming the component. Requires the updated optional Craftworks integration.
+
+## 0.1.0
+
+### Added
+
+- [Premium] Persistent Projects and downtime Sessions with GM-authoritative player requests, time allocation, and history.
+- [Premium] Training with specific proficiency selections, instructors, editable estimates, and completion awards.
+- [Premium] Commissions with Core item selection, editable labor estimates, and campaign-day progress.
+- [Premium] Marketplace-backed Source Item Projects and Craftworks Project integration.
+- [Premium] Shared Core Locations, character eligibility, interface components, and in-app documentation.
+- [Premium] Standard Morelord release tooling and a versioned user guide.
