@@ -7,8 +7,9 @@
   "releaseBranch": "main",
   "archiveName": "morelord-downtime.zip",
   "websiteUrl": "https://morelordgaming.com",
-  "requiredPaths": [
+    "requiredPaths": [
     "module.json",
+    "CHANGELOG.md",
     "README.md",
     "scripts",
     "styles",

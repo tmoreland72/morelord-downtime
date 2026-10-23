@@ -38,7 +38,8 @@
 
 ## Releases and documentation
 
-- Keep release notes and changelogs in `release-notes/`. Put temporary scripts, staging folders, browser profiles, and other working files in the owning module's `/tmp/` directory; ignore `/tmp/` in Git and exclude it from release archives. Preserve permanent source, documentation, and regression evidence.
+- Per-version release notes live in `release-notes/RELEASE-NOTES-<version>.md` (excluded from release archives). Every released module maintains a cumulative root `CHANGELOG.md` (newest version first, `#`/`##`/`###` headings with spaces after `#`, `- ` bullets, no `---` horizontal rules) generated from `release-notes/RELEASE-NOTES-*.md`, auto-updated by `release.ps1`, and packaged at the root of the release `.zip`.
+- Put temporary scripts, staging folders, browser profiles, and other working files in the owning module's `/tmp/` directory; ignore `/tmp/` in Git and exclude it from release archives. Preserve permanent source, documentation, and regression evidence.
 
 - Campaign Manager is inactive. Exclude it from active-module inventories, release checks, and development planning unless the user explicitly revives it.
 
