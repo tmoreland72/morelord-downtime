@@ -3,7 +3,7 @@ title: Morelord Downtime Documentation
 description: Manage persistent Projects, downtime Sessions, training, commissions, and item sourcing.
 slug: morelord-downtime
 product: morelord-downtime
-version: 0.1.2
+version: 0.2.0
 foundry: 14
 order: 0
 ---
@@ -14,7 +14,7 @@ Downtime tracks long-running character Projects across GM-managed downtime Sessi
 
 ## Setup
 
-Requires Foundry VTT 14, D&D5e 5.3 or newer, and Morelord Core 0.3.9 or newer. Enable Core and Downtime in your world. Open **Morelord Downtime** from the timer icon in Token Controls. Core provides the shared interface, website documentation links, character eligibility, and Locations.
+Requires Foundry VTT 14, D&D5e 5.3 or newer, and Morelord Core 0.6.0 or newer. Enable Core and Downtime in your world. Open **Morelord Downtime** from the timer icon in **Morelord Tools** on the scene controls. GMs and players both see it. Core provides the shared interface, website documentation links, character eligibility, and Locations.
 
 Optional integrations are Journeys 0.2.1+, Craftworks 0.4.3+, and Marketplace 0.9.2+. Journeys supplies travel-day advancement; Craftworks supplies crafting Projects; Marketplace supplies Source Item wishlist choices, currency handling, and offers. Missing integrations disable their related features without preventing the base module from loading.
 
@@ -78,6 +78,7 @@ Project and Session details show history newest first, with timestamps and reada
 
 ## Troubleshooting
 
+- **Downtime is not under Morelord Tools:** update Morelord Core to 0.6.0 or newer. Until Core provides that tools registry, the same timer button stays on the Token controls.
 - **No available hours:** the GM must start a Session that includes the character and permits the activity.
 - **Request does not complete:** confirm a GM is connected and Core is enabled.
 - **Missing crafting or sourcing options:** check the optional integration and its required version; sourcing also needs an eligible wishlist item.

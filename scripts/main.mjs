@@ -16,7 +16,8 @@ import { queueLiveWindowRefresh } from "./apps/live-window-registry.mjs";
 import { Dnd5eProficiencyAdapter } from "./adapters/dnd5e-proficiency-adapter.mjs";
 import { CraftworksProjectAdapter } from "./adapters/craftworks-project-adapter.mjs";
 import { COMMISSION_ACTIVITY_ID, commissionSummary, createCommissionProject } from "./activities/commission/commission-activity.mjs";
-import { getCoreApi, getCoreLocations, getModuleApi } from "./integrations/core-api.mjs";
+import { addMorelordTool, getCoreApi, getCoreLocations, getModuleApi } from "./integrations/core-api.mjs";
+import { DOWNTIME_SCENE_TOOL } from "./integrations/downtime-scene-tool.mjs";
 import { SOURCE_ITEM_ACTIVITY_ID, createSourceItemProject, sourceItemSummary } from "./activities/source-item/source-item-activity.mjs";
 import { SourceItemResolutionService } from "./activities/source-item/source-item-resolution-service.mjs";
 import { SourceItemProjectApp } from "./apps/source-item-app.mjs";
@@ -103,23 +104,7 @@ Hooks.once("init", () => {
   repository.registerSetting();
 });
 
-Hooks.on("getSceneControlButtons", controls => {
-  const tokenTools = controls?.tokens?.tools;
-  if (!tokenTools) return;
-  tokenTools.morelordDowntime = {
-    name: "morelordDowntime",
-    title: "Morelord Downtime",
-    icon: "fa-solid fa-timer",
-    order: Object.keys(tokenTools).length,
-    button: true,
-    visible: true,
-    onChange: () => {
-      const api = globalThis.MorelordDowntime ?? game.modules.get(MODULE_ID)?.api;
-      if (!api?.open) return ui.notifications.warn("Morelord Downtime is still initializing.");
-      api.open();
-    }
-  };
-});
+addMorelordTool(DOWNTIME_SCENE_TOOL);
 
 Hooks.once("ready", () => {
   getCoreApi()?.ui?.documentation?.register(DOWNTIME_DOCUMENTATION);

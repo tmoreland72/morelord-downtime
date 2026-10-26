@@ -1,5 +1,11 @@
 # Morelord Downtime Changelog
 
+## 0.2.0
+
+### Improvements
+
+- The Downtime timer control registers with Morelord Tools and remains available to GMs and players. It requires Morelord Core 0.6.0 or newer. When that tools registry is unavailable, the timer button stays on the Token controls.
+
 ## 0.1.2
 
 ### Improvements
