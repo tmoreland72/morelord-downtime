@@ -14,7 +14,7 @@ Downtime tracks long-running character Projects across GM-managed downtime Sessi
 
 ## Setup
 
-Requires Foundry VTT 14, D&D5e 5.3 or newer, and Morelord Core 0.6.0 or newer. Enable Core and Downtime in your world. Open **Morelord Downtime** from the timer icon in **Morelord Tools** on the scene controls. GMs and players both see it. Core provides the shared interface, website documentation links, character eligibility, and Locations.
+Requires Foundry VTT 14, D&D5e 5.3 or newer, and Morelord Core 0.9.0 or newer. Enable Core and Downtime in your world. Open **Morelord Downtime** from the timer icon in **Morelord Tools** on the scene controls. GMs and players both see it. Core provides the shared interface, website documentation links, character eligibility, and Locations.
 
 Optional integrations are Journeys 0.2.1+, Craftworks 0.4.3+, and Marketplace 0.9.2+. Journeys supplies travel-day advancement; Craftworks supplies crafting Projects; Marketplace supplies Source Item wishlist choices, currency handling, and offers. Missing integrations disable their related features without preventing the base module from loading.
 
@@ -68,7 +68,7 @@ Craftworks owns recipes, materials, jobs, checks, and outputs. Ready marked reci
 
 While a Downtime Session is **Active** and **Available Activities** includes **Crafting**, hours spent crafting are added to that character's allocated Session time. The player callout and the GM **Unallocated** total both use that allocation. This includes every crafting check, including a failed check, and a recipe that finishes without a check. The character must be a participant in the active Session. The primary active GM records the time, including a GM who is listed in Core's Ignored Users. A player can craft for a character they own, and a GM can craft for a character whose player is disconnected; the time is recorded once. If the primary GM is disconnected while the check is made, the time is recorded when that GM is connected again, as long as the Session is still active.
 
-Open crafting time is included when Downtime first sees it during an active Session that allows **Crafting**. Hours spent while no Session is active, or by a character who is not in the active Session, are not added later. Cancelling a craft in Craftworks does not refund Session time already recorded. A crafting job whose output has already been awarded is not charged to a later Session. Session details name the character, the hours, and the recipe in history.
+Open crafting time is included when Downtime first sees it during an active Session that allows **Crafting**. Hours spent while no Session is active, or by a character who is not in the active Session, are not added later. Cancelling a craft in Craftworks does not refund Session time already recorded. A crafting job whose output has already been awarded is not charged to a later Session. Session details name the character, the hours, and the recipe in history. An open Downtime window refreshes in place for the GM and for players when crafting changes a character or when that time is added to the Session. The window stays where it is; it is not brought to the front.
 
 ## Campaign days
 
@@ -82,7 +82,7 @@ Project and Session details show history newest first, with timestamps and reada
 
 ## Troubleshooting
 
-- **Downtime is not under Morelord Tools:** update Morelord Core to 0.6.0 or newer. Until Core provides that tools registry, the same timer button stays on the Token controls.
+- **Downtime is not under Morelord Tools, or an open window does not update after crafting:** update Morelord Core to 0.9.0 or newer. Until Core provides that tools registry, the same timer button stays on the Token controls. Core 0.9.0 refreshes the open window without bringing it forward.
 - **No available hours:** the GM must start a Session that includes the character and permits the activity.
 - **Request does not complete:** confirm a GM is connected and Core is enabled.
 - **Crafting, Commission, or Source Item did not reduce available time:** start a Downtime Session that includes the character and enable that activity under **Available Activities**. Keep the primary GM connected for crafting checks. Time spent before the Session allowed the activity is not applied later. Cancelling a craft does not return time already recorded.

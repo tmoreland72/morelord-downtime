@@ -2,7 +2,7 @@
 
 Morelord Downtime is the persistent Project and campaign-time orchestration layer for the Morelord suite on Foundry VTT 14.
 
-Morelord Core 0.6.0 or newer is required and provides the shared design system, participation helpers, documentation, Location services, and the Morelord Tools scene control. Journeys, Craftworks, and Marketplace are recommended integrations: Downtime detects and uses their public APIs when available without preventing the base module from loading when one is absent.
+Morelord Core 0.9.0 or newer is required and provides the shared design system, participation helpers, documentation, Location services, background window refresh, and the Morelord Tools scene control. Journeys, Craftworks, and Marketplace are recommended integrations: Downtime detects and uses their public APIs when available without preventing the base module from loading when one is absent.
 
 ## Current implementation
 
@@ -79,6 +79,6 @@ When a compatible Morelord Core is active, its explicit reporting choices can sh
 
 ## Release dependency
 
-This release requires Morelord Core 0.6.0 or newer so Downtime can register its timer control with Morelord Tools. GMs and players both see that control. Optional integrations remain optional.
+This release requires Morelord Core 0.9.0 or newer so Downtime can register its timer control with Morelord Tools and refresh open windows without bringing them to the front. GMs and players both see that control. Optional integrations remain optional.
 
 Per-version release notes live in `release-notes/RELEASE-NOTES-<version>.md` and are excluded from release packages. The cumulative root `CHANGELOG.md` is newest-version-first, rebuilt by `release.ps1`, and packaged at the root of the release ZIP for in-Foundry changelog viewers. Foundry links to the GitHub Releases page through the manifest `changelog` URL. Use the module-local `/tmp/` directory for working files; it is ignored by Git and excluded from release packages.

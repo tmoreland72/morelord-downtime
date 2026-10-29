@@ -12,7 +12,7 @@ import { ProjectDetailApp, SessionDetailApp } from "./apps/detail-apps.mjs";
 import { SessionService } from "./services/session-service.mjs";
 import { AllocationAuthorityService } from "./services/allocation-authority-service.mjs";
 import { DOWNTIME_DOCUMENTATION } from "./documentation/product-documentation.mjs";
-import { queueLiveWindowRefresh } from "./apps/live-window-registry.mjs";
+import { downtimeStateSettingChanged, queueLiveWindowRefresh } from "./apps/live-window-registry.mjs";
 import { Dnd5eProficiencyAdapter } from "./adapters/dnd5e-proficiency-adapter.mjs";
 import { CraftworksProjectAdapter } from "./adapters/craftworks-project-adapter.mjs";
 import { registerCraftTimeTracking } from "./integrations/craft-time-tracking.mjs";
@@ -425,7 +425,7 @@ Hooks.on("morelordJourneys.dayComplete", async payload => {
 });
 
 Hooks.on("updateSetting", setting => {
-  if (setting.key === `${MODULE_ID}.${STATE_SETTING}`) queueLiveWindowRefresh();
+  if (downtimeStateSettingChanged(setting)) queueLiveWindowRefresh();
 });
 Hooks.on("morelordCoreLocationChanged", () => queueLiveWindowRefresh());
 Hooks.on("morelordCoreLocationRemoved", () => queueLiveWindowRefresh());

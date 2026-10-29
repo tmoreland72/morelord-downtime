@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CraftworksProjectAdapter } from "../scripts/adapters/craftworks-project-adapter.mjs";
+import { CraftworksProjectAdapter, visibleCraftingProgress } from "../scripts/adapters/craftworks-project-adapter.mjs";
 
 test("Craftworks adapter exposes ready marked recipes and active jobs once", async () => {
   const actor = { id: "joeb", uuid: "Actor.joeb", name: "Joeb" };
@@ -65,6 +65,20 @@ test("Craftworks adapter excludes recipes unavailable at the downtime location",
     locationName: "On the Road"
   });
   assert.deepEqual(projects, []);
+});
+
+test("project progress prefers newer actor flags over a stale Craftworks cache", () => {
+  const actor = {
+    id: "darro",
+    uuid: "Actor.darro",
+    flags: { "morelord-craftworks": { craftingJobs: { antitoxin: {
+      recipeId: "antitoxin", hoursRequired: 2, successes: 0, attempts: 2, updatedAt: 20
+    } } } }
+  };
+  const api = { craftingJobs: { getProgress: () => ({ hoursRequired: 2, progressHours: 2, timeSpentHours: 2, updatedAt: 10 }) } };
+  const progress = visibleCraftingProgress(actor, api, "antitoxin", actor.uuid);
+  assert.equal(progress.timeSpentHours, 4);
+  assert.equal(progress.progressHours, 0);
 });
 
 test("opening a Craftworks project requests a focused recipe window", () => {

@@ -1,5 +1,46 @@
 import { getModuleApi } from "../integrations/core-api.mjs";
 
+const CRAFT_INTERVAL_HOURS = 2;
+
+function persistedCraftingJob(actor, recipeId) {
+  const jobs = actor?.flags?.["morelord-craftworks"]?.craftingJobs ?? {};
+  if (jobs[recipeId]) return jobs[recipeId];
+  const prefix = `${recipeId}::`;
+  const key = Object.keys(jobs).find(candidate => candidate.startsWith(prefix));
+  return key ? jobs[key] : null;
+}
+
+function progressFromFlags(job) {
+  if (!job) return null;
+  const hoursRequired = Math.max(0, Number(job.hoursRequired ?? 0));
+  if (job.completedWithoutCheck) {
+    return { hoursRequired, progressHours: hoursRequired, timeSpentHours: hoursRequired, updatedAt: Number(job.updatedAt ?? 0) };
+  }
+  const successes = Math.max(0, Number(job.successes ?? 0));
+  const attempts = Math.max(0, Number(job.attempts ?? 0));
+  return {
+    hoursRequired,
+    progressHours: Math.min(hoursRequired, successes * CRAFT_INTERVAL_HOURS),
+    timeSpentHours: attempts * CRAFT_INTERVAL_HOURS,
+    updatedAt: Number(job.updatedAt ?? 0)
+  };
+}
+
+/** Craftworks caches job progress per client. Actor flags are the copy every client receives. */
+export function visibleCraftingProgress(actor, api, recipeId, inventoryActorUuid) {
+  const flagsJob = persistedCraftingJob(actor, recipeId);
+  const fromFlags = progressFromFlags(flagsJob);
+  let fromApi = null;
+  try {
+    fromApi = api?.craftingJobs?.getProgress?.(recipeId, actor, inventoryActorUuid) ?? null;
+  } catch {
+    fromApi = null;
+  }
+  if (!fromFlags) return fromApi;
+  if (!fromApi) return fromFlags;
+  return Number(flagsJob?.updatedAt ?? 0) > Number(fromApi.updatedAt ?? 0) ? { ...fromApi, ...fromFlags } : fromApi;
+}
+
 export class CraftworksProjectAdapter {
   constructor({ getApi = () => getModuleApi("morelord-craftworks", "MorelordCraftworks") } = {}) {
     this.getApi = getApi;
@@ -20,7 +61,7 @@ export class CraftworksProjectAdapter {
         const readiness = job ? null : api.recipePlanner.plan(recipe, actor);
         const environment = api.craftingEnvironment?.evaluate?.(recipe, { location }) ?? { passed: true };
         if (!environment.passed || (!job && !readiness?.ready)) continue;
-        const progress = job ? api.craftingJobs.getProgress(recipeId, actor, job.inventoryActorUuid) : null;
+        const progress = job ? visibleCraftingProgress(actor, api, recipeId, job.inventoryActorUuid) : null;
         const requiredHours = Number(progress?.hoursRequired ?? recipe.craft?.hoursRequired ?? 0);
         const completedHours = Number(progress?.progressHours ?? 0);
         const reportedSpent = Number(progress?.timeSpentHours);

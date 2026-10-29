@@ -325,11 +325,13 @@ test("an actor update for Craftworks flags refreshes Downtime and reconciles tha
     const craftTime = { reconcileActor: async actor => actor.uuid };
     registerCraftTimeTracking(craftTime, { refresh: () => refreshed.push("refresh") });
     assert.equal(calls.length, 1);
-    await calls[0].callback({ uuid: "Actor.aric" }, { flags: { "morelord-craftworks": { craftingJobs: {} } } });
-    assert.deepEqual(refreshed, ["refresh"]);
+    calls[0].callback({ uuid: "Actor.aric" }, { flags: { "morelord-craftworks": { craftingJobs: {} } } });
+    calls[0].callback({ uuid: "Actor.aric" }, { "flags.morelord-craftworks.craftingJobs": { attempts: 2 } });
+    await Promise.resolve();
+    assert.deepEqual(refreshed, ["refresh", "refresh", "refresh", "refresh"]);
     calls[0].callback({ uuid: "Actor.aric" }, { name: "Aric" });
     calls[0].callback({ uuid: "Actor.aric" }, { flags: { other: true } });
-    assert.deepEqual(refreshed, ["refresh"]);
+    assert.deepEqual(refreshed, ["refresh", "refresh", "refresh", "refresh"]);
   } finally {
     globalThis.Hooks = previousHooks;
   }
