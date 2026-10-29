@@ -151,7 +151,12 @@ export class ProjectService {
         if (activity?.onComplete) project = await activity.onComplete(project) ?? project;
       }
       state.projects[id] = project;
-      if (project.progress.elapsed.completedDays !== existing.progress.elapsed.completedDays || project.status !== existing.status) changed.push(structuredClone(project));
+      const daysApplied = project.progress.elapsed.completedDays - existing.progress.elapsed.completedDays;
+      if (daysApplied > 0 || project.status !== existing.status) {
+        const copy = structuredClone(project);
+        if (daysApplied > 0) copy.elapsedDaysApplied = daysApplied;
+        changed.push(copy);
+      }
     }
     state.consumedDayKeys.push(dayKey);
     if (state.consumedDayKeys.length > 1000) state.consumedDayKeys = state.consumedDayKeys.slice(-1000);

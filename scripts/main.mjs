@@ -17,6 +17,8 @@ import { Dnd5eProficiencyAdapter } from "./adapters/dnd5e-proficiency-adapter.mj
 import { CraftworksProjectAdapter } from "./adapters/craftworks-project-adapter.mjs";
 import { registerCraftTimeTracking } from "./integrations/craft-time-tracking.mjs";
 import { CraftTimeService } from "./services/craft-time-service.mjs";
+import { isPrimaryActiveGm } from "./services/primary-gm.mjs";
+import { recordElapsedSessionTime } from "./services/elapsed-session-time.mjs";
 import { COMMISSION_ACTIVITY_ID, commissionSummary, createCommissionProject } from "./activities/commission/commission-activity.mjs";
 import { addMorelordTool, getCoreApi, getCoreLocations, getModuleApi } from "./integrations/core-api.mjs";
 import { DOWNTIME_SCENE_TOOL } from "./integrations/downtime-scene-tool.mjs";
@@ -36,10 +38,17 @@ const craftTime = new CraftTimeService({
   repository,
   isPrimaryGm: () => isPrimaryActiveGm(),
   getIntegration: () => getModuleApi("morelord-craftworks", "MorelordCraftworks")?.downtimeIntegration,
+  readProjects: readCraftingProjects,
   getActors: () => Array.from(globalThis.game?.actors ?? []).filter(actor => actor.type === "character")
 });
 craftTime.holdForBaseline();
 registerCraftTimeTracking(craftTime);
+const advanceDay = projects.advanceDay.bind(projects);
+projects.advanceDay = async context => {
+  const result = await advanceDay(context);
+  await recordElapsedSessionTime(craftTime, result);
+  return result;
+};
 const marketplaceSourcing = new MarketplaceSourcingAdapter();
 const sourceItemResolution = new SourceItemResolutionService({ catalog: marketplaceSourcing });
 const trainingAwards = new TrainingAwardService({ proficiencyAdapter: proficiencies });
@@ -82,11 +91,20 @@ const allocationAuthority = new AllocationAuthorityService({
   getResearch: () => researchApi
 });
 
-function isPrimaryActiveGm() {
-  const activeGms = Array.from(globalThis.MorelordCore?.users?.list() ?? game.users ?? [])
-    .filter(user => user.active && user.isGM)
-    .sort((left, right) => left.id.localeCompare(right.id));
-  return game.user.isGM && (!activeGms.length || activeGms[0].id === game.user.id);
+function readCraftingProjects(actor) {
+  const api = getModuleApi("morelord-craftworks", "MorelordCraftworks");
+  if (!api?.craftingJobs?.list || !api.craftingJobs.getProgress) return null;
+  return api.craftingJobs.list(actor, { activeOnly: false }).map(job => {
+    const progress = api.craftingJobs.getProgress(job.recipeId, actor, job.inventoryActorUuid);
+    const recipe = api.recipes?.get?.(job.recipeId, { includeDisabled: true });
+    const timeSpentHours = Number(progress?.timeSpentHours ?? 0);
+    return {
+      recipeId: String(job.recipeId),
+      timeSpentHours: Number.isFinite(timeSpentHours) ? Math.max(0, timeSpentHours) : 0,
+      recipeName: recipe?.name ? String(recipe.name) : "a recipe",
+      outputAwarded: progress?.outputAwarded === true
+    };
+  });
 }
 
 function missingOptionalSuiteApis() {
@@ -149,7 +167,7 @@ Hooks.once("ready", () => {
     name: "Commission",
     icon: "fa-solid fa-handshake",
     description: "Track contracted work that advances as campaign days pass.",
-    availableInSessions: false,
+    availableInSessions: true,
     launch: () => new CommissionProjectApp().render({ force: true }),
     edit: project => new CommissionProjectApp({ projectId: project.id }).render({ force: true }),
     createProject: data => createCommissionProject(data, { idFactory: () => foundry.utils.randomID() }),
@@ -160,7 +178,7 @@ Hooks.once("ready", () => {
     name: "Source Item",
     icon: "fa-solid fa-magnifying-glass-dollar",
     description: "Invest gold and weeks to locate a magic item from a character's Marketplace wishlist.",
-    availableInSessions: false,
+    availableInSessions: true,
     launch: () => new SourceItemProjectApp().render({ force: true }),
     edit: project => new SourceItemProjectApp({ projectId: project.id }).render({ force: true }),
     createProject: data => createSourceItemProject(data, { idFactory: () => foundry.utils.randomID() }),

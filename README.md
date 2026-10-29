@@ -40,7 +40,8 @@ The API is available at `game.modules.get("morelord-downtime").api` and `Morelor
 - `projects.create(raw)` / `get(id)` / `list(filters)` / `update(id, changes)` / `remove(id)`
 - `projects.applyEffort(id, hours, options)`
 - `advanceDay({ idempotencyKey, source, metadata })`
-- Crafting time is recorded from Craftworks' published hours spent. While a Downtime Session is active, each new hour a participant spends crafting is allocated to that Session, including a failed check and a recipe that finishes without a check. `craftTime.reconcileActor(actor)` runs that update for one character.
+- Crafting time is recorded from Craftworks' published hours spent. While a Downtime Session is active and **Crafting** is one of its **Available Activities**, each new hour a participant spends crafting is allocated to that Session, including a failed check and a recipe that finishes without a check. `craftTime.reconcileActor(actor)` runs that update for one character.
+- **Commission** and **Source Item** are the same kind of session activity. Each campaign day they progress spends one 8-hour labor day on the active Session when that activity is enabled for a participating character.
 - `locations.current()` / `locations.evaluate()` / `locations.open()`
 
 The Project, allocation, and first activity contracts support the dashboard and Session-allocation workflow.
@@ -51,7 +52,7 @@ Training is an activity plugin. Training discovers D&D5e languages, skills, armo
 
 Downtime provides the structured GM/player dashboard and full Downtime Session lifecycle. GMs prepare and publish Sessions, monitor intervention queues, finalize with validation, and review history from Session details. Project and Session history use readable text and referenced names instead of JSON, including existing saved records. Players preview relevant Sessions, create permitted Projects, and allocate time through GM-authoritative requests. The dashboard places Downtime Sessions above Projects and launches the same Core-owned Manage Locations application used throughout the suite.
 
-Source Item is an elapsed activity backed by Marketplace. A character selects a Common through Legendary magic item from their Marketplace wishlist, spends at least 100 gp, and commits at least one week. Gold and extra weeks improve a hidden Arcana or Investigation result; completion reveals either the requested item's offer price or 1d4 Marketplace-selected alternatives of the same or lower rarity. One unassisted Persuasion result may then adjust the offers.
+Source Item is an elapsed activity backed by Marketplace. A character selects a Common through Legendary magic item from their Marketplace wishlist, spends at least 100 gp, and commits at least one week. Gold and extra weeks improve a hidden Arcana or Investigation result; completion reveals either the requested item's offer price or 1d4 Marketplace-selected alternatives of the same or lower rarity. One unassisted Persuasion result may then adjust the offers. Commission and Source Item appear in a Session's **Available Activities** with Training and Crafting. A progressed day spends 8 hours from that Session when the activity is enabled.
 
 Sessions are persistent downtime opportunities distinct from Projects. GMs can prepare drafts, publish upcoming opportunities, start them to make time available, and finalize with unresolved-time validation. Players see only Sessions and Projects relevant to Actors they own. Their Project creation and allocation requests are validated and committed by the primary active GM; Project choices come from the active Session rather than a hardcoded player menu.
 

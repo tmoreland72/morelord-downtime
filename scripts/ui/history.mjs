@@ -22,6 +22,16 @@ export async function formatHistory(history, services, record = {}) {
         details = `${data.actorName || actorName(data.actorUuid)} spent ${amount} ${unit} crafting ${data.recipeName || "a recipe"}.`;
         break;
       }
+      case "session-time": {
+        const amount = Number(data.hours);
+        const unit = amount === 1 ? "hour" : "hours";
+        const who = data.actorName || actorName(data.actorUuid);
+        const action = data.activityId === "source-item" ? "sourcing" : data.activityId === "commission" ? "commissioning" : null;
+        details = action
+          ? `${who} spent ${amount} ${unit} ${action} ${data.label || "a project"}.`
+          : `${who} spent ${amount} ${unit} on ${data.label || "a project"}.`;
+        break;
+      }
       case "elapsed-day": details = `${data.days} ${data.days === 1 ? "day" : "days"} of progress recorded.`; break;
       case "updated": details = `Changed: ${(data.fields ?? []).map(fieldLabel).join(", ") || "Details"}.`; break;
       case "completed": details = data.status === "awaiting-collection" ? "Work finished; ready for collection." : "Project completed."; break;

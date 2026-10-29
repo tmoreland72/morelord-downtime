@@ -23,6 +23,7 @@ export class CraftTimeService {
   constructor({
     repository,
     getIntegration = () => null,
+    readProjects = null,
     getActors = () => [],
     isPrimaryGm = () => true,
     now = () => Date.now(),
@@ -30,6 +31,7 @@ export class CraftTimeService {
   } = {}) {
     this.repository = repository;
     this.getIntegration = getIntegration;
+    this.readProjects = readProjects;
     this.getActors = getActors;
     this.isPrimaryGm = isPrimaryGm;
     this.now = now;
@@ -92,10 +94,62 @@ export class CraftTimeService {
     return this.#enqueue(() => this.#reconcileActor(actor));
   }
 
+  /** Allocate hours already spent on a session activity. Past time is not applied later. */
+  recordHours({ actor, activityId, hours, label, projectId }) {
+    return this.#enqueue(() => this.#recordHours({ actor, activityId, hours, label, projectId }));
+  }
+
+  async #recordHours({ actor, activityId, hours, label, projectId }) {
+    if (globalThis.game?.user && game.user.isGM !== true) return { recorded: false, hours: 0, reason: "not-gm" };
+    const spent = Number(hours);
+    if (actor?.type !== "character" || !actor.uuid || !activityId || !Number.isFinite(spent) || spent <= 0) {
+      return { recorded: false, hours: 0, reason: "invalid" };
+    }
+    const state = await this.repository.read();
+    const charged = this.#charge(state, actor, [{
+      recipeId: String(projectId ?? activityId),
+      recipeName: label || "a project",
+      projectId: String(projectId ?? activityId),
+      hours: spent
+    }], { activityId: String(activityId) });
+    if (charged.hours > 0) {
+      await this.repository.write(state);
+      this.#notify(charged.notes);
+    }
+    return {
+      recorded: charged.hours > 0,
+      hours: charged.hours,
+      notes: charged.notes,
+      reason: charged.hours > 0 ? "recorded" : "unchanged"
+    };
+  }
+
+  #capture(actors) {
+    if (typeof this.readProjects !== "function") return null;
+    const captured = new Map();
+    for (const actor of actors ?? []) {
+      if (actor?.type !== "character" || !actor.uuid) continue;
+      try {
+        const projects = this.readProjects(actor);
+        if (Array.isArray(projects)) captured.set(actor.uuid, projects);
+      } catch (error) {
+        console.error(`${MODULE_ID} | Could not read Craftworks progress for ${actor.uuid}.`, error);
+      }
+    }
+    return captured;
+  }
+
   async #baseline(actors) {
     if (!this.#mayWrite()) return { recorded: false, hours: 0, reason: "not-primary-gm" };
     const integration = this.getIntegration();
-    if (!integrationReady(integration)) return { recorded: false, hours: 0, reason: "craftworks-unavailable" };
+    if (!integrationReady(integration) && typeof this.readProjects !== "function") {
+      return { recorded: false, hours: 0, reason: "craftworks-unavailable" };
+    }
+    // Snapshot before the settings read so a crafting check during that await stays a later delta.
+    const captured = this.#capture(actors);
+    if (!integrationReady(integration) && !captured?.size) {
+      return { recorded: false, hours: 0, reason: "craftworks-unavailable" };
+    }
     const state = await this.repository.read();
     const chargeNew = state.craftTimeLedgerInitialized === true;
     const notes = [];
@@ -103,7 +157,7 @@ export class CraftTimeService {
     let changed = state.craftTimeLedgerInitialized !== true;
     let unreadable = false;
     for (const actor of actors ?? []) {
-      const result = await this.#applyActor(state, actor, integration, { chargeNew });
+      const result = await this.#applyActor(state, actor, integration, { chargeNew, projects: captured?.get(actor.uuid) });
       hours += result.hours;
       notes.push(...result.notes);
       changed = changed || result.changed;
@@ -140,11 +194,48 @@ export class CraftTimeService {
     return { recorded: result.hours > 0, hours: result.hours, notes: result.notes, reason: result.hours > 0 ? "recorded" : "unchanged" };
   }
 
-  async #applyActor(state, actor, integration, { chargeNew }) {
+  async #projectsFor(actor, integration, preset) {
+    if (Array.isArray(preset)) {
+      return preset.map(project => ({
+        recipeId: String(project?.recipeId ?? ""),
+        timeSpentHours: Number(project?.timeSpentHours ?? 0),
+        recipeName: project?.recipeName || null,
+        outputAwarded: project?.outputAwarded === true
+      })).filter(project => project.recipeId);
+    }
+    if (!integrationReady(integration)) return null;
+    const jobs = await integration.listProjects({ crafterUuid: actor.uuid, activeOnly: false }) ?? [];
+    const projects = [];
+    for (const job of jobs) {
+      const recipeId = String(job?.recipeId ?? "").trim();
+      if (!recipeId) continue;
+      const progress = await integration.getProject({
+        recipeId,
+        crafterUuid: actor.uuid,
+        inventoryActorUuid: job.inventoryActorUuid ?? null
+      });
+      if (!progress) {
+        projects.push({ recipeId, timeSpentHours: null, recipeName: null });
+        continue;
+      }
+      const timeSpentHours = Number(progress.timeSpentHours ?? 0);
+      projects.push({
+        recipeId,
+        timeSpentHours: Number.isFinite(timeSpentHours) ? Math.max(0, timeSpentHours) : 0,
+        recipeName: null,
+        outputAwarded: progress.outputAwarded === true
+      });
+    }
+    return projects;
+  }
+
+  async #applyActor(state, actor, integration, { chargeNew, projects: preset = undefined }) {
     if (actor?.type !== "character" || !actor.uuid) return { hours: 0, changed: false, notes: [] };
-    let jobs = [];
+    let listed = [];
     try {
-      jobs = await integration.listProjects({ crafterUuid: actor.uuid, activeOnly: false }) ?? [];
+      const projects = await this.#projectsFor(actor, integration, preset);
+      if (!projects) return { hours: 0, changed: false, notes: [], unreadable: true };
+      listed = projects;
     } catch (error) {
       console.error(`${MODULE_ID} | Could not read Craftworks projects for ${actor.uuid}.`, error);
       return { hours: 0, changed: false, notes: [], unreadable: true };
@@ -153,44 +244,38 @@ export class CraftTimeService {
     const nextLedger = {};
     const charges = [];
     let unreadable = false;
-    for (const job of jobs) {
-      const recipeId = String(job?.recipeId ?? "").trim();
-      if (!recipeId) continue;
+    for (const project of listed) {
+      const recipeId = project.recipeId;
       const seen = Object.prototype.hasOwnProperty.call(previousLedger, recipeId);
       const previous = seen ? Number(previousLedger[recipeId]) : null;
-      let timeSpentHours;
-      try {
-        const progress = await integration.getProject({
-          recipeId,
-          crafterUuid: actor.uuid,
-          inventoryActorUuid: job.inventoryActorUuid ?? null
-        });
-        if (!progress) {
-          if (previous != null) nextLedger[recipeId] = previous;
-          else unreadable = true;
-          continue;
-        }
-        timeSpentHours = Number(progress.timeSpentHours ?? 0);
-        if (!Number.isFinite(timeSpentHours) || timeSpentHours < 0) timeSpentHours = 0;
-      } catch (error) {
-        console.error(`${MODULE_ID} | Could not read Craftworks progress for ${recipeId}.`, error);
+      if (project.timeSpentHours == null) {
         if (previous != null) nextLedger[recipeId] = previous;
         else unreadable = true;
         continue;
       }
+      const timeSpentHours = project.timeSpentHours;
       nextLedger[recipeId] = timeSpentHours;
       let delta = 0;
+      // Open work seen for the first time counts, including hours already spent
+      // when Downtime starts during an active Session. Awarded jobs are remembered
+      // without charging this Session for work finished earlier.
       if (previous == null) {
-        if (chargeNew && timeSpentHours > 0) delta = timeSpentHours;
+        if (timeSpentHours > 0 && project.outputAwarded !== true) delta = timeSpentHours;
       } else if (timeSpentHours > previous) delta = timeSpentHours - previous;
-      if (delta > 0) charges.push({ recipeId, recipeName: this.#recipeName(integration, recipeId), hours: delta });
+      if (delta > 0) {
+        charges.push({
+          recipeId,
+          recipeName: project.recipeName || this.#recipeName(integration, recipeId),
+          hours: delta
+        });
+      }
     }
     const changed = !sameLedger(previousLedger, nextLedger);
     if (Object.keys(nextLedger).length) state.craftTimeLedger[actor.uuid] = nextLedger;
     else delete state.craftTimeLedger[actor.uuid];
     if (unreadable && chargeNew === false) return { hours: 0, changed: false, notes: [], unreadable: true };
     if (!charges.length) return { hours: 0, changed, notes: [], unreadable };
-    const charged = this.#charge(state, actor, charges);
+    const charged = this.#charge(state, actor, charges, { activityId: "crafting" });
     return { hours: charged.hours, changed: true, notes: charged.notes, unreadable };
   }
 
@@ -204,9 +289,10 @@ export class CraftTimeService {
     return "a recipe";
   }
 
-  #charge(state, actor, charges) {
+  #charge(state, actor, charges, { activityId = "crafting" } = {}) {
     const session = Object.values(state.sessions).find(entry => entry.status === "active") ?? null;
     if (!session) return { hours: 0, notes: [] };
+    if (!session.availableActivities?.includes(activityId)) return { hours: 0, notes: [] };
     const candidates = session.segmentIds
       .map(id => state.segments[id])
       .filter(segment => segment?.status === "open" && participant(segment, actor.uuid));
@@ -219,29 +305,39 @@ export class CraftTimeService {
       const result = recordSpentHours(segment, {
         actorUuid: actor.uuid,
         hours: charge.hours,
-        projectId: `craftworks:${actor.id ?? actor.uuid}:${charge.recipeId}`,
+        projectId: charge.projectId ?? `craftworks:${actor.id ?? actor.uuid}:${charge.recipeId}`,
         at: this.now(),
         recipeId: charge.recipeId,
         recipeName: charge.recipeName
       });
       segment = result.segment;
       hours += charge.hours;
+      const crafting = activityId === "crafting";
       notes.push({
         actorName: actor.name ?? "A character",
         hours: charge.hours,
         recipeName: charge.recipeName,
+        activityId,
         exceeded: result.exceeded
       });
       session.history.push({
         at: this.now(),
-        type: "craft-time",
-        data: {
-          actorUuid: actor.uuid,
-          actorName: actor.name ?? null,
-          hours: charge.hours,
-          recipeId: charge.recipeId,
-          recipeName: charge.recipeName
-        }
+        type: crafting ? "craft-time" : "session-time",
+        data: crafting
+          ? {
+            actorUuid: actor.uuid,
+            actorName: actor.name ?? null,
+            hours: charge.hours,
+            recipeId: charge.recipeId,
+            recipeName: charge.recipeName
+          }
+          : {
+            actorUuid: actor.uuid,
+            actorName: actor.name ?? null,
+            hours: charge.hours,
+            activityId,
+            label: charge.recipeName
+          }
       });
     }
     state.segments[segment.id] = segment;
@@ -253,7 +349,10 @@ export class CraftTimeService {
     if (!notes?.length) return;
     const summary = notes.map(note => {
       const unit = note.hours === 1 ? "hour" : "hours";
-      return `${note.actorName} spent ${note.hours} ${unit} crafting ${note.recipeName}.`;
+      const action = note.activityId === "source-item" ? "sourcing"
+        : note.activityId === "commission" ? "commissioning"
+          : "crafting";
+      return `${note.actorName} spent ${note.hours} ${unit} ${action} ${note.recipeName}.`;
     }).join(" ");
     const over = notes.some(note => note.exceeded)
       ? " It is more time than that character had remaining."
