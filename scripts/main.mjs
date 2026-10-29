@@ -15,6 +15,8 @@ import { DOWNTIME_DOCUMENTATION } from "./documentation/product-documentation.mj
 import { queueLiveWindowRefresh } from "./apps/live-window-registry.mjs";
 import { Dnd5eProficiencyAdapter } from "./adapters/dnd5e-proficiency-adapter.mjs";
 import { CraftworksProjectAdapter } from "./adapters/craftworks-project-adapter.mjs";
+import { registerCraftTimeTracking } from "./integrations/craft-time-tracking.mjs";
+import { CraftTimeService } from "./services/craft-time-service.mjs";
 import { COMMISSION_ACTIVITY_ID, commissionSummary, createCommissionProject } from "./activities/commission/commission-activity.mjs";
 import { addMorelordTool, getCoreApi, getCoreLocations, getModuleApi } from "./integrations/core-api.mjs";
 import { DOWNTIME_SCENE_TOOL } from "./integrations/downtime-scene-tool.mjs";
@@ -30,6 +32,14 @@ const activities = new ActivityRegistry();
 const projects = new ProjectService({ repository, activityRegistry: activities });
 const proficiencies = new Dnd5eProficiencyAdapter();
 const craftworksProjects = new CraftworksProjectAdapter();
+const craftTime = new CraftTimeService({
+  repository,
+  isPrimaryGm: () => isPrimaryActiveGm(),
+  getIntegration: () => getModuleApi("morelord-craftworks", "MorelordCraftworks")?.downtimeIntegration,
+  getActors: () => Array.from(globalThis.game?.actors ?? []).filter(actor => actor.type === "character")
+});
+craftTime.holdForBaseline();
+registerCraftTimeTracking(craftTime);
 const marketplaceSourcing = new MarketplaceSourcingAdapter();
 const sourceItemResolution = new SourceItemResolutionService({ catalog: marketplaceSourcing });
 const trainingAwards = new TrainingAwardService({ proficiencyAdapter: proficiencies });
@@ -107,6 +117,7 @@ Hooks.once("init", () => {
 addMorelordTool(DOWNTIME_SCENE_TOOL);
 
 Hooks.once("ready", () => {
+  void craftTime.baselineWhenReady();
   getCoreApi()?.ui?.documentation?.register(DOWNTIME_DOCUMENTATION);
   const coreLocations = () => getCoreLocations();
   activities.register({
@@ -363,6 +374,9 @@ Hooks.once("ready", () => {
       negotiate: projectId => allocationAuthority.negotiateSourceItem(projectId)
     }),
     advanceDay: context => projects.advanceDay(context),
+    craftTime: Object.freeze({
+      reconcileActor: actor => craftTime.reconcileActor(actor)
+    }),
     locations: Object.freeze({
       current: () => coreLocations()?.current?.() ?? null,
       evaluate: (requirements, context) => coreLocations()?.evaluate?.(requirements, context)
@@ -397,6 +411,3 @@ Hooks.on("updateSetting", setting => {
 });
 Hooks.on("morelordCoreLocationChanged", () => queueLiveWindowRefresh());
 Hooks.on("morelordCoreLocationRemoved", () => queueLiveWindowRefresh());
-Hooks.on("updateActor", (actor, changes) => {
-  if (changes.flags?.["morelord-craftworks"]) queueLiveWindowRefresh();
-});

@@ -16,6 +16,12 @@ export async function formatHistory(history, services, record = {}) {
       case "effort-applied":
         details = `${data.participantActorUuid ? actorName(data.participantActorUuid) : "A participant"} contributed ${data.hours} ${data.hours === 1 ? "hour" : "hours"}.`;
         break;
+      case "craft-time": {
+        const amount = Number(data.hours);
+        const unit = amount === 1 ? "hour" : "hours";
+        details = `${data.actorName || actorName(data.actorUuid)} spent ${amount} ${unit} crafting ${data.recipeName || "a recipe"}.`;
+        break;
+      }
       case "elapsed-day": details = `${data.days} ${data.days === 1 ? "day" : "days"} of progress recorded.`; break;
       case "updated": details = `Changed: ${(data.fields ?? []).map(fieldLabel).join(", ") || "Details"}.`; break;
       case "completed": details = data.status === "awaiting-collection" ? "Work finished; ready for collection." : "Project completed."; break;

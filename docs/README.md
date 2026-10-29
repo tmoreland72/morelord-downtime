@@ -3,7 +3,7 @@ title: Morelord Downtime Documentation
 description: Manage persistent Projects, downtime Sessions, training, commissions, and item sourcing.
 slug: morelord-downtime
 product: morelord-downtime
-version: 0.2.0
+version: 0.2.1
 foundry: 14
 order: 0
 ---
@@ -32,7 +32,7 @@ Character choices include player-owned characters and character members of the p
 
 ## Player workflow
 
-Open Downtime to see Sessions and Projects relevant to characters you own. Create a Project, or plan an existing Project into an eligible Session. Once the Session is active, choose contributors and allocate hours. Each contributor spends the entered duration; the Project gains that duration once. A Project can continue across multiple Sessions.
+Open Downtime to see Sessions and Projects relevant to characters you own. Create a Project, or plan an existing Project into an eligible Session. Once the Session is active, choose contributors and allocate hours. Each contributor spends the entered duration; the Project gains that duration once. A Project can continue across multiple Sessions. Time spent crafting in Craftworks is allocated automatically for a character in the active Session.
 
 ## Activities
 
@@ -64,7 +64,11 @@ Completion reveals an offer for the requested item or 1d4 Marketplace alternativ
 
 ### Crafting
 
-Craftworks owns recipes, materials, jobs, checks, and outputs. Ready marked recipes and active jobs appear through the integration; opening them launches Craftworks with the crafter selected. Manage those Projects in Craftworks.
+Craftworks owns recipes, materials, jobs, checks, and outputs. Ready marked recipes and active jobs appear in **Projects**. Opening one launches Craftworks with the crafter selected. The progress column shows successful crafting progress. When failed checks make the hours spent greater than that progress, the row also shows the hours spent, for example `2 / 8 hours (4 hours spent)`.
+
+While a Downtime Session is **Active**, hours spent crafting are added to that character's allocated Session time. The player callout and the GM **Unallocated** total both use that allocation. This includes every crafting check, including a failed check, and a recipe that finishes without a check. The character must be a participant in the active Session. The primary active GM records the time. A player can craft for a character they own, and a GM can craft for a character whose player is disconnected; the time is recorded once. If the primary GM is disconnected while the check is made, the time is recorded when that GM is connected again, as long as the Session is still active.
+
+Hours spent while no Session is active, or by a character who is not in the active Session, are not added later. Cancelling a craft in Craftworks does not refund Session time already recorded. The first time this version runs, crafting time already saved is not charged again. Session details name the character, the hours, and the recipe in history.
 
 ## Campaign days
 
@@ -81,6 +85,7 @@ Project and Session details show history newest first, with timestamps and reada
 - **Downtime is not under Morelord Tools:** update Morelord Core to 0.6.0 or newer. Until Core provides that tools registry, the same timer button stays on the Token controls.
 - **No available hours:** the GM must start a Session that includes the character and permits the activity.
 - **Request does not complete:** confirm a GM is connected and Core is enabled.
+- **Crafting did not reduce available time:** start a Downtime Session that includes the crafter and keep the primary GM connected. Time spent before the Session started is not applied later. Cancelling the craft does not return time already recorded.
 - **Missing crafting or sourcing options:** check the optional integration and its required version; sourcing also needs an eligible wishlist item.
 - **Activity cannot progress:** review the Project's participants, status, Location, and capability requirements.
 - **Project disappeared after cancellation:** enable **Show Completed**.

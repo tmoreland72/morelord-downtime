@@ -27,6 +27,25 @@ test("Craftworks adapter exposes ready marked recipes and active jobs once", asy
   assert.equal(projects.find(project => project.recipeId === "ready").status, "ready");
 });
 
+test("Craftworks adapter shows hours spent when a check does not advance progress", async () => {
+  const actor = { id: "joeb", uuid: "Actor.joeb", name: "Joeb" };
+  const recipe = { id: "active", name: "Longsword", craft: { hoursRequired: 8 } };
+  const api = {
+    markedRecipes: { list: () => ["active"] },
+    craftingJobs: {
+      list: () => [{ recipeId: "active", inventoryActorUuid: actor.uuid }],
+      getProgress: () => ({ hoursRequired: 8, progressHours: 2, timeSpentHours: 4 })
+    },
+    recipes: { get: () => recipe },
+    recipePlanner: { plan: () => ({ ready: true }) },
+    craftingEnvironment: { evaluate: () => ({ passed: true }) }
+  };
+  const adapter = new CraftworksProjectAdapter({ getApi: () => api });
+  const [project] = await adapter.list({ actors: [actor], locationName: "Neverwinter" });
+  assert.equal(project.progressLabel, "2 / 8 hours (4 hours spent)");
+  assert.equal(project.progressPercent, 25);
+});
+
 test("Craftworks adapter excludes recipes unavailable at the downtime location", async () => {
   const actor = { id: "joeb", uuid: "Actor.joeb", name: "Joeb" };
   const recipe = { id: "forge", name: "Ball Bearings", craft: { hoursRequired: 2 } };

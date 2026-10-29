@@ -23,6 +23,11 @@ export class CraftworksProjectAdapter {
         const progress = job ? api.craftingJobs.getProgress(recipeId, actor, job.inventoryActorUuid) : null;
         const requiredHours = Number(progress?.hoursRequired ?? recipe.craft?.hoursRequired ?? 0);
         const completedHours = Number(progress?.progressHours ?? 0);
+        const reportedSpent = Number(progress?.timeSpentHours);
+        const timeSpentHours = Number.isFinite(reportedSpent) ? reportedSpent : completedHours;
+        const spentLabel = timeSpentHours > completedHours
+          ? ` (${timeSpentHours} ${timeSpentHours === 1 ? "hour" : "hours"} spent)`
+          : "";
         projects.push({
           id: `craftworks:${actor.id}:${recipeId}`,
           external: true,
@@ -35,7 +40,7 @@ export class CraftworksProjectAdapter {
           status: job ? (environment.passed ? "in-progress" : "paused") : "ready",
           ownerName: actor.name,
           locationName,
-          progressLabel: `${completedHours} / ${requiredHours} hours`,
+          progressLabel: `${completedHours} / ${requiredHours} hours${spentLabel}`,
           progressPercent: requiredHours ? Math.min(100, Math.round(completedHours / requiredHours * 100)) : 0,
           canEditProject: true,
           canDeleteProject: false,

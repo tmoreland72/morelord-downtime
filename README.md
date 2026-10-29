@@ -40,6 +40,7 @@ The API is available at `game.modules.get("morelord-downtime").api` and `Morelor
 - `projects.create(raw)` / `get(id)` / `list(filters)` / `update(id, changes)` / `remove(id)`
 - `projects.applyEffort(id, hours, options)`
 - `advanceDay({ idempotencyKey, source, metadata })`
+- Crafting time is recorded from Craftworks' published hours spent. While a Downtime Session is active, each new hour a participant spends crafting is allocated to that Session, including a failed check and a recipe that finishes without a check. `craftTime.reconcileActor(actor)` runs that update for one character.
 - `locations.current()` / `locations.evaluate()` / `locations.open()`
 
 The Project, allocation, and first activity contracts support the dashboard and Session-allocation workflow.
@@ -56,7 +57,7 @@ Sessions are persistent downtime opportunities distinct from Projects. GMs can p
 
 ## Cancelling and deleting Projects
 
-GMs and a Project owner's players can use **Cancel Project** and **Delete Project** from the dashboard, Project details, or the Training, Commission, and Source Item editors. Cancellation stops further progress and retains the Project under **Show Completed**. Unused Projects can be deleted immediately; Projects with recorded progress must be cancelled first. Deletion permanently removes the Project and its history and clears planned Session links, but retains Session allocation records. Neither action refunds spent time or gold. Crafting Projects remain managed in Craftworks.
+GMs and a Project owner's players can use **Cancel Project** and **Delete Project** from the dashboard, Project details, or the Training, Commission, and Source Item editors. Cancellation stops further progress and retains the Project under **Show Completed**. Unused Projects can be deleted immediately; Projects with recorded progress must be cancelled first. Deletion permanently removes the Project and its history and clears planned Session links, but retains Session allocation records. Neither action refunds spent time or gold. Crafting Projects remain managed in Craftworks. Cancelling a craft there does not refund Downtime Session time already recorded for that work.
 
 ## Development standards
 

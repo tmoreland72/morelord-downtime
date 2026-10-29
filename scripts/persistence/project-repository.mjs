@@ -1,6 +1,14 @@
 import { MODULE_ID, STATE_SETTING } from "../constants.mjs";
 
-const emptyState = () => ({ schemaVersion: 1, projects: {}, segments: {}, sessions: {}, consumedDayKeys: [] });
+const emptyState = () => ({
+  schemaVersion: 1,
+  projects: {},
+  segments: {},
+  sessions: {},
+  consumedDayKeys: [],
+  craftTimeLedger: {},
+  craftTimeLedgerInitialized: false
+});
 
 export class ProjectRepository {
   constructor({ getState = null, setState = null } = {}) {
