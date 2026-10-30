@@ -5,7 +5,7 @@ import { ProjectRepository } from "../scripts/persistence/project-repository.mjs
 import { ProjectService } from "../scripts/services/project-service.mjs";
 import { SegmentService } from "../scripts/services/segment-service.mjs";
 import { canProgressTraining, createTrainingProject } from "../scripts/activities/training/training-activity.mjs";
-import { assertNpcInstructorSpecialty, filterNpcTrainingChoices, locationAllowsSpecialty } from "../scripts/domain/instructor-specialty.mjs";
+import { assertNpcInstructorSpecialty, filterNpcTrainingChoices, locationAllowsSpecialty, locationAllowsSpecialtyFallback } from "../scripts/domain/instructor-specialty.mjs";
 import { TrainingAwardService, applyTrainingAwardResult } from "../scripts/activities/training/training-award-service.mjs";
 
 function trainingHarness({ actor = null } = {}) {
@@ -105,6 +105,35 @@ test("an NPC instructor at Neverwinter can only teach that Location's Instructor
   );
   const openAcademy = { id: "academy", capabilities: [{ type: "instructor", specialty: "any" }] };
   assert.equal(filterNpcTrainingChoices(choices.concat([{ id: "dwarvish" }]), openAcademy).length, 2);
+});
+
+test("specialty lists allow each stored key, an empty list allows every key, and a legacy string is one key", () => {
+  const several = { capabilities: [{ type: "instructor", specialty: ["sign", "dwarvish", "smith"] }] };
+  assert.equal(locationAllowsSpecialtyFallback(several, "instructor", "sign"), true);
+  assert.equal(locationAllowsSpecialtyFallback(several, "instructor", "dwarvish"), true);
+  assert.equal(locationAllowsSpecialtyFallback(several, "instructor", "smith"), true);
+  assert.equal(locationAllowsSpecialtyFallback(several, "instructor", "elvish"), false);
+  const open = { capabilities: [{ type: "instructor", specialty: [] }] };
+  assert.equal(locationAllowsSpecialtyFallback(open, "instructor", "elvish"), true);
+  assert.equal(locationAllowsSpecialtyFallback(open, "instructor", "sign"), true);
+  const legacy = { capabilities: [{ type: "instructor", specialty: "sign" }] };
+  assert.equal(locationAllowsSpecialtyFallback(legacy, "instructor", "sign"), true);
+  assert.equal(locationAllowsSpecialtyFallback(legacy, "instructor", "dwarvish"), false);
+
+  const providerProject = (proficiency, specialty) => createTrainingProject({
+    kind: "language",
+    proficiencyId: proficiency,
+    owner: { uuid: "Actor.aric" },
+    instructor: { mode: "provider", providerId: "academy" },
+    provider: { id: "academy", capabilities: [{ type: "instructor", specialty }] }
+  });
+  const context = { segment: { source: "session" }, participantActorUuids: ["Actor.aric"] };
+  assert.equal(canProgressTraining(providerProject("sign", ["sign", "dwarvish"]), context).passed, true);
+  assert.equal(canProgressTraining(providerProject("dwarvish", ["sign", "dwarvish"]), context).passed, true);
+  assert.equal(canProgressTraining(providerProject("elvish", ["sign", "dwarvish"]), context).passed, false);
+  assert.equal(canProgressTraining(providerProject("elvish", []), context).passed, true);
+  assert.equal(canProgressTraining(providerProject("sign", "sign"), context).passed, true);
+  assert.equal(canProgressTraining(providerProject("dwarvish", "sign"), context).passed, false);
 });
 
 test("NPC specialty checks use Core locationAllowsSpecialty when it is exposed", () => {

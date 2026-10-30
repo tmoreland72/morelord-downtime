@@ -1,13 +1,35 @@
 /**
  * Whether a location capability of `type` allows `specialtyKey`.
- * Prefers Core 0.9.0 `api.locations.locationAllowsSpecialty`. The fallback matches that rule:
- * Any, an empty specialty, or a missing specialty allows every key. An empty or Any key is
- * allowed by every capability of that type. No capability of that type returns false.
+ * Prefers Core `api.locations.locationAllowsSpecialty`. The fallback matches Core 0.9.0:
+ * specialty is an array of keys. Empty, missing, or Any means every key. A legacy string
+ * is one key. An empty or Any specialtyKey is allowed by every capability of that type.
+ * A location with no capability of that type returns false.
  */
 const UNRESTRICTED = new Set(["", "any"]);
 
 export function isUnrestrictedSpecialty(value) {
   return UNRESTRICTED.has(String(value ?? "").trim().toLowerCase());
+}
+
+/** A legacy string, an array, empty, or Any all become stored specialty keys. Empty means no restriction. */
+export function normalizeSpecialtyList(value) {
+  const raw = Array.isArray(value) ? value : [value];
+  const keys = [];
+  const seen = new Set();
+  for (const entry of raw) {
+    const key = String(entry ?? "").trim();
+    if (!key || isUnrestrictedSpecialty(key) || seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  return keys;
+}
+
+export function capabilityAllowsSpecialty(capability, specialtyKey) {
+  if (isUnrestrictedSpecialty(specialtyKey)) return true;
+  const keys = normalizeSpecialtyList(capability?.specialty);
+  if (!keys.length) return true;
+  return keys.includes(String(specialtyKey).trim());
 }
 
 export function locationAllowsSpecialtyFallback(location, type, specialtyKey) {
@@ -16,12 +38,7 @@ export function locationAllowsSpecialtyFallback(location, type, specialtyKey) {
   const capabilities = Array.isArray(location.capabilities) ? location.capabilities : [];
   const matches = capabilities.filter(capability => String(capability?.type ?? "").trim() === typeId);
   if (!matches.length) return false;
-  if (isUnrestrictedSpecialty(specialtyKey)) return true;
-  const requested = String(specialtyKey).trim();
-  return matches.some(capability => {
-    const stored = String(capability?.specialty ?? "").trim();
-    return isUnrestrictedSpecialty(stored) || stored === requested;
-  });
+  return matches.some(capability => capabilityAllowsSpecialty(capability, specialtyKey));
 }
 
 function coreAllows() {

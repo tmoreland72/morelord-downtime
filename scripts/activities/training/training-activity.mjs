@@ -1,6 +1,6 @@
 import { trainingDefault } from "../../domain/project-defaults.mjs";
 import { createProject } from "../../domain/project.mjs";
-import { isUnrestrictedSpecialty, locationAllowsSpecialty } from "../../domain/instructor-specialty.mjs";
+import { locationAllowsSpecialty } from "../../domain/instructor-specialty.mjs";
 
 export const TRAINING_ACTIVITY_ID = "training";
 export const TRAINING_KINDS = Object.freeze(["artisanTool", "toolProficiency", "skillProficiency", "language", "armorProficiency", "weaponProficiency", "weaponMastery"]);
@@ -82,11 +82,9 @@ export function canProgressTraining(project, { segment, participantActorUuids = 
     if (project.provider.locationId && segment?.locationId && project.provider.locationId !== segment.locationId) {
       return { passed: false, reasons: ["The instructor provider is not available at this Location."] };
     }
-    const capability = project.provider.capabilities.find(entry =>
-      entry.type === "instructor"
-      && (isUnrestrictedSpecialty(entry.specialty) || entry.specialty === training.proficiencyId)
-    );
-    if (!capability) return { passed: false, reasons: ["The provider cannot teach this proficiency."] };
+    if (!locationAllowsSpecialty({ capabilities: project.provider.capabilities ?? [] }, "instructor", training.proficiencyId)) {
+      return { passed: false, reasons: ["The provider cannot teach this proficiency."] };
+    }
   } else {
     return { passed: false, reasons: ["Training requires an instructor."] };
   }
