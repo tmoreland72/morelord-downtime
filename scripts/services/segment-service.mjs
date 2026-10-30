@@ -2,10 +2,11 @@ import { applyEffort } from "../domain/project.mjs";
 import { allocateSegmentHours, createSegment } from "../domain/segment.mjs";
 
 export class SegmentService {
-  constructor({ repository, activityRegistry, requirementEvaluator = null, idFactory = null, now = () => Date.now() }) {
+  constructor({ repository, activityRegistry, requirementEvaluator = null, getLocation = null, idFactory = null, now = () => Date.now() }) {
     this.repository = repository;
     this.activityRegistry = activityRegistry;
     this.requirementEvaluator = requirementEvaluator;
+    this.getLocation = getLocation;
     this.idFactory = idFactory;
     this.now = now;
   }
@@ -71,7 +72,13 @@ export class SegmentService {
     if (project?.locationId && segment?.locationId !== project.locationId) reasons.push("This Project can only progress at its assigned Location.");
     const activity = project ? this.activityRegistry.get(project.activityType) : null;
     if (project && activity) {
-      const result = await activity.canProgress(project, { segment, participantActorUuids, hours });
+      const locationId = project.locationId || segment?.locationId;
+      let location = null;
+      if (locationId && this.getLocation) {
+        try { location = this.getLocation(locationId) ?? null; }
+        catch { location = null; }
+      }
+      const result = await activity.canProgress(project, { segment, participantActorUuids, hours, location });
       if (result === false) reasons.push("The Project cannot progress during this Downtime Session.");
       else if (result?.passed === false) reasons.push(...(result.reasons ?? ["The Project cannot progress during this Downtime Session."]));
     }

@@ -1,5 +1,6 @@
 import { ItemPickerApp } from "../../../morelord-core/scripts/ui/item-picker-app.js";
 import { trainingDefault, commissionDefault } from "../domain/project-defaults.mjs";
+import { assertNpcInstructorSpecialty, filterNpcTrainingChoices } from "../domain/instructor-specialty.mjs";
 import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-participation.js";
 import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { DowntimeApplication } from "./downtime-application.mjs";
@@ -24,12 +25,14 @@ class TrainingSelectionApp extends DowntimeApplication {
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/training-selection.hbs" } };
 
-  constructor({ choices = [], selectedValue = "", onSelect = null } = {}) {
+  constructor({ choices = [], selectedValue = "", onSelect = null, emptyTitle = null, emptyDetail = null } = {}) {
     super();
     this.choices = choices;
     this.selectedValue = selectedValue;
     this.onSelect = onSelect;
     this.category = "all";
+    this.emptyTitle = emptyTitle;
+    this.emptyDetail = emptyDetail;
   }
 
   async _prepareContext(options) {
@@ -45,7 +48,9 @@ class TrainingSelectionApp extends DowntimeApplication {
         category,
         count: this.choices.filter(choice => choice.category === category).length
       })),
-      resultCount: this.choices.length
+      resultCount: this.choices.length,
+      emptyTitle: this.emptyTitle ?? "No Matching Training",
+      emptyDetail: this.emptyDetail ?? "Change the search text or category filter."
     };
   }
 
@@ -173,7 +178,22 @@ export class TrainingProjectApp extends DowntimeApplication {
       if (!this.projectId && !this.trainingHoursEdited) this.updateTrainingDefault();
     });
     this.element.querySelector('[name="requiredHours"]')?.addEventListener("input", () => { this.trainingHoursEdited = true; });
-    instructor?.addEventListener("change", refresh);
+    const locationField = this.element.querySelector('[name="locationId"]');
+    const enforceNpcSpecialty = () => {
+      if ((instructor?.value ?? "") !== "npc") return;
+      if (this.npcTrainingChoices("npc").some(choice => choice.value === this.selectedTrainingValue)) return;
+      this.selectedTrainingValue = "";
+      const input = this.element.querySelector('[name="proficiency"]');
+      if (input) input.value = "";
+      const label = this.element.querySelector("[data-selected-training-label]");
+      const category = this.element.querySelector("[data-selected-training-category]");
+      if (label) label.textContent = "No training selected";
+      if (category) category.textContent = "This Location's Instructor cannot teach the previously selected subject.";
+      const hours = this.element.querySelector("[data-training-hours]");
+      if (hours) hours.hidden = true;
+    };
+    instructor?.addEventListener("change", () => { refresh(); enforceNpcSpecialty(); });
+    locationField?.addEventListener("change", enforceNpcSpecialty);
     refresh();
   }
 
@@ -188,14 +208,26 @@ export class TrainingProjectApp extends DowntimeApplication {
     this.element.querySelector("[data-training-guidance]").textContent = defaults.guidance;
   }
 
+  npcTrainingChoices(instructorSelection) {
+    const knownInstructor = this.trainingCatalog.filter(choice => !instructorSelection
+      || instructorSelection === "npc"
+      || choice.instructorUuids.split("|").filter(Boolean).includes(instructorSelection));
+    if (instructorSelection !== "npc") return knownInstructor;
+    const locationId = this.element.querySelector('[name="locationId"]')?.value ?? "";
+    const location = locationId ? this.constructor.services.locations()?.get?.(locationId) ?? null : null;
+    return filterNpcTrainingChoices(knownInstructor, location);
+  }
+
   static selectTraining(event) {
     event.preventDefault();
     const instructorSelection = this.element.querySelector('[name="instructorSelection"]')?.value ?? "";
-    const choices = this.trainingCatalog.filter(choice => !instructorSelection
-      || instructorSelection === "npc"
-      || choice.instructorUuids.split("|").filter(Boolean).includes(instructorSelection));
+    const locationId = this.element.querySelector('[name="locationId"]')?.value ?? "";
+    const choices = this.npcTrainingChoices(instructorSelection);
+    const restricted = instructorSelection === "npc" && locationId;
     return new TrainingSelectionApp({
       choices,
+      emptyTitle: restricted ? "No Instructor Specialty" : null,
+      emptyDetail: restricted ? "This Location's Instructor cannot teach the subjects in the current list." : null,
       selectedValue: this.selectedTrainingValue,
       onSelect: choice => {
         this.selectedTrainingValue = choice.value;
@@ -228,10 +260,15 @@ export class TrainingProjectApp extends DowntimeApplication {
       if (ownerUuid === instructorUuid) throw new Error("The student and instructor must be different characters.");
       if (!proficiencyId || !this.constructor.services.proficiencies.supports(kind)) throw new Error("Choose a specific training proficiency.");
       if (!Number.isFinite(requiredHours) || requiredHours <= 0) throw new Error("Required hours must be greater than zero.");
+      const locationId = String(form.get("locationId") ?? "").trim() || null;
+      if (instructorSelection === "npc") {
+        const location = locationId ? this.constructor.services.locations()?.get?.(locationId) ?? null : null;
+        assertNpcInstructorSpecialty({ instructor: { mode: "npc" }, locationId, proficiencyId }, location);
+      }
       const data = {
         kind, proficiencyId, requiredHours,
         proficiencyLabel: selected?.label ?? proficiencyId,
-        locationId: String(form.get("locationId") ?? "").trim() || null,
+        locationId,
         owner: { uuid: ownerUuid, name: game.actors.get(ownerUuid.split(".").at(-1))?.name ?? null },
         instructor: instructorSelection === "npc" ? { mode: "npc", name: npcInstructorName } : { mode: "participant", actorUuid: instructorUuid },
         participants: instructorSelection === "npc"
@@ -390,9 +427,11 @@ export class SessionEditorApp extends DowntimeApplication {
     const session = this.sessionId ? await this.constructor.services.sessions.get(this.sessionId) : null;
     const participantIds = new Set(session?.participants.map(entry => entry.actorUuid) ?? []);
     const activityIds = new Set(session?.availableActivities ?? []);
+    const readOnly = globalThis.game?.user ? game.user.isGM !== true : false;
     return {
       ...await super._prepareContext(options),
       isEditing: Boolean(session),
+      readOnly,
       session,
       actors: characterChoices({ selectedUuids: session ? participantIds : null }),
       locations: (this.constructor.services.locations()?.list?.() ?? []).map(location => ({ ...location, selected: location.id === session?.locationId })),
@@ -402,6 +441,10 @@ export class SessionEditorApp extends DowntimeApplication {
 
   static async create(event, target) {
     event.preventDefault();
+    if (globalThis.game?.user && game.user.isGM !== true) {
+      ui.notifications.error("Only a GM may change Downtime Sessions.");
+      return;
+    }
     const form = new FormData(this.element);
     target.disabled = true;
     try {

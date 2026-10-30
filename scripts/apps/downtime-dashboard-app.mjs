@@ -3,8 +3,17 @@ import { projectManagementActions } from "./project-management.mjs";
 import { NewProjectApp, SessionEditorApp } from "./creation-apps.mjs";
 import { ProjectDetailApp, SessionDetailApp } from "./detail-apps.mjs";
 import { LiveDowntimeApplication } from "./downtime-application.mjs";
+import { craftingPlaceLabel, craftingPlaces } from "../domain/crafting-places.mjs";
 import { getCoreApi } from "../integrations/core-api.mjs";
 import { titleCase } from "../ui/formatting.mjs";
+
+function requireSessionGm() {
+  if (globalThis.game?.user && game.user.isGM !== true) {
+    ui.notifications.error("Only a GM may change Downtime Sessions.");
+    return false;
+  }
+  return true;
+}
 
 async function runSessionAction(app, target, operation, successMessage) {
   target.disabled = true;
@@ -85,16 +94,18 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
     const visibleSessions = allSessions.filter(session => isGm
       || (["upcoming", "active", "finalized", "cancelled"].includes(session.status) && isParticipant(session.participants)));
     const activeOpportunity = visibleSessions.find(session => session.status === "active") ?? null;
-    const activeLocation = activeOpportunity?.locationId
-      ? locations()?.get?.(activeOpportunity.locationId) ?? null
-      : activeOpportunity
-        ? { id: "road", name: "On the Road", settlementType: "road", capabilities: [] }
-        : locations()?.current?.() ?? null;
+    const locationApi = locations?.() ?? null;
+    const sceneId = game.user?.viewedScene || globalThis.canvas?.scene?.id || game.scenes?.current?.id || null;
+    let activeContext = null;
+    try { activeContext = locationApi?.activeContext?.(game.user) ?? null; }
+    catch { activeContext = null; }
+    const sceneLocation = (sceneId && locationApi?.forScene?.(sceneId)) || locationApi?.current?.() || null;
+    const craftingPlacesForUser = craftingPlaces({ activeContext, sceneLocation });
     const craftingActors = listCharacterActors({ ownedOnly: !isGm });
     const externalProjects = await craftworksProjects.list({
       actors: craftingActors,
-      locationName: activeLocation?.name ?? "Current Location",
-      location: activeLocation
+      places: craftingPlacesForUser,
+      locationName: craftingPlaceLabel(craftingPlacesForUser, sceneLocation)
     });
     const opportunitySegments = activeOpportunity
       ? openSegments.filter(segment => segment.metadata?.sessionId === activeOpportunity.id)
@@ -151,10 +162,10 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
       locationName: locationRecords.find(location => location.id === session.locationId)?.name ?? "No Location",
       participantSummary: session.participants.map(entry => entry.name ?? entry.actorUuid).join(", "),
       activitySummary: session.availableActivities.map(id => activities.get(id)?.name ?? titleCase(id)).join(", ") || "No new activities",
-      canPublish: session.status === "draft",
-      canStart: session.status === "upcoming",
-      canFinalize: session.status === "active",
-      canEdit: ["draft", "upcoming", "active"].includes(session.status),
+      canPublish: isGm && session.status === "draft",
+      canStart: isGm && session.status === "upcoming",
+      canFinalize: isGm && session.status === "active",
+      canEdit: isGm && ["draft", "upcoming", "active"].includes(session.status),
       isClosed: ["finalized", "cancelled"].includes(session.status),
       canDelete: isGm && ["draft", "cancelled"].includes(session.status)
         && !session.segmentIds.map(id => allSegments.find(segment => segment.id === id)).filter(Boolean)
@@ -214,12 +225,17 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
 
   static openSession(event) {
     event.preventDefault();
+    if (!requireSessionGm()) return;
     new SessionEditorApp().render({ force: true });
   }
 
   static editSession(event, target) {
     event.preventDefault();
     const sessionId = target.closest("[data-session-id]")?.dataset.sessionId;
+    if (!requireSessionGm()) {
+      new SessionDetailApp({ sessionId }).render({ force: true });
+      return;
+    }
     new SessionEditorApp({ sessionId }).render({ force: true });
   }
 
@@ -339,6 +355,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
 
   static async deleteSession(event, target) {
     event.preventDefault();
+    if (!requireSessionGm()) return;
     const row = target.closest("[data-session-id]");
     const confirmed = await foundry.applications.api.DialogV2.confirm({ window: { title: "Delete Downtime Session" }, content: "<p>Delete this Session permanently? Only drafts or cancelled Sessions without allocations can be deleted.</p>", modal: true });
     if (!confirmed) return;

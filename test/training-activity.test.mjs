@@ -5,6 +5,7 @@ import { ProjectRepository } from "../scripts/persistence/project-repository.mjs
 import { ProjectService } from "../scripts/services/project-service.mjs";
 import { SegmentService } from "../scripts/services/segment-service.mjs";
 import { canProgressTraining, createTrainingProject } from "../scripts/activities/training/training-activity.mjs";
+import { assertNpcInstructorSpecialty, filterNpcTrainingChoices, locationAllowsSpecialty } from "../scripts/domain/instructor-specialty.mjs";
 import { TrainingAwardService, applyTrainingAwardResult } from "../scripts/activities/training/training-award-service.mjs";
 
 function trainingHarness({ actor = null } = {}) {
@@ -69,6 +70,61 @@ test("provider instructors must expose the matching instructor capability", () =
   project.provider.capabilities[0].specialty = "smith";
   assert.equal(canProgressTraining(project, { segment: { source: "session", locationId: "neverwinter" }, participantActorUuids: ["Actor.aric"] }).passed, false);
   assert.equal(canProgressTraining(project, { segment: { source: "session", locationId: "waterdeep" }, participantActorUuids: ["Actor.aric"] }).passed, true);
+});
+
+test("an NPC instructor at Neverwinter can only teach that Location's Instructor specialty", () => {
+  const neverwinter = {
+    id: "neverwinter",
+    name: "Neverwinter",
+    capabilities: [{ type: "instructor", tier: "common", specialty: "sign" }]
+  };
+  const choices = filterNpcTrainingChoices([
+    { id: "sign", kind: "language", label: "Common Sign Language" },
+    { id: "dwarvish", kind: "language", label: "Dwarvish" },
+    { id: "ste", kind: "skillProficiency", label: "Stealth" }
+  ], neverwinter);
+  assert.deepEqual(choices.map(choice => choice.id), ["sign"]);
+  const project = proficiency => createTrainingProject({
+    kind: "language",
+    proficiencyId: proficiency,
+    owner: { uuid: "Actor.aric" },
+    instructor: { mode: "npc", name: "Chapel Interpreter" },
+    locationId: "neverwinter"
+  });
+  const context = proficiency => ({
+    segment: { locationId: "neverwinter" },
+    participantActorUuids: ["Actor.aric"],
+    location: neverwinter
+  });
+  assert.equal(canProgressTraining(project("dwarvish"), context("dwarvish")).passed, false);
+  assert.equal(canProgressTraining(project("sign"), context("sign")).passed, true);
+  assert.equal(locationAllowsSpecialty(neverwinter, "instructor", "sign"), true);
+  assert.throws(
+    () => assertNpcInstructorSpecialty({ instructor: { mode: "npc" }, locationId: "neverwinter", proficiencyId: "dwarvish" }, neverwinter),
+    /cannot teach that subject/
+  );
+  const openAcademy = { id: "academy", capabilities: [{ type: "instructor", specialty: "any" }] };
+  assert.equal(filterNpcTrainingChoices(choices.concat([{ id: "dwarvish" }]), openAcademy).length, 2);
+});
+
+test("NPC specialty checks use Core locationAllowsSpecialty when it is exposed", () => {
+  const prior = globalThis.MorelordCore;
+  const location = { id: "neverwinter", capabilities: [{ type: "instructor", specialty: "sign" }] };
+  globalThis.MorelordCore = {
+    locations: {
+      locationAllowsSpecialty: (place, type, key) => {
+        assert.equal(place, location);
+        assert.equal(type, "instructor");
+        assert.equal(key, "sign");
+        return true;
+      }
+    }
+  };
+  try {
+    assert.equal(locationAllowsSpecialty(location, "instructor", "sign"), true);
+  } finally {
+    globalThis.MorelordCore = prior;
+  }
 });
 
 test("a named NPC instructor requires the Project Location", () => {

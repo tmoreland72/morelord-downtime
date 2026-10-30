@@ -41,26 +41,56 @@ export function visibleCraftingProgress(actor, api, recipeId, inventoryActorUuid
   return Number(flagsJob?.updatedAt ?? 0) > Number(fromApi.updatedAt ?? 0) ? { ...fromApi, ...fromFlags } : fromApi;
 }
 
+function environmentAt(api, recipe, place) {
+  if (typeof api?.craftingEnvironment?.evaluate !== "function") return { passed: true, place };
+  try {
+    const result = api.craftingEnvironment.evaluate(recipe, place ? { location: place } : {}) ?? { passed: true };
+    return { ...result, passed: result.passed !== false, place };
+  } catch {
+    // One unreadable place must not drop every crafting project.
+    return { passed: true, place };
+  }
+}
+
 export class CraftworksProjectAdapter {
   constructor({ getApi = () => getModuleApi("morelord-craftworks", "MorelordCraftworks") } = {}) {
     this.getApi = getApi;
   }
 
-  async list({ actors = [], locationName = "Current Location", location = null } = {}) {
+  async list({ actors = [], locationName = "Current Location", location = null, places = null } = {}) {
     const api = this.getApi();
     if (!api?.markedRecipes || !api?.craftingJobs || !api?.recipes || !api?.recipePlanner) return [];
+    const checkedPlaces = Array.isArray(places) ? places : (location ? [location] : []);
     const projects = [];
     for (const actor of actors) {
-      const activeJobs = api.craftingJobs.list(actor, { activeOnly: true });
+      let activeJobs = [];
+      try {
+        activeJobs = api.craftingJobs.list(actor, { activeOnly: true }) ?? [];
+      } catch {
+        activeJobs = [];
+      }
       const activeByRecipe = new Map(activeJobs.map(job => [String(job.recipeId), job]));
-      const recipeIds = new Set([...api.markedRecipes.list(actor).map(String), ...activeByRecipe.keys()]);
+      let marked = [];
+      try {
+        marked = api.markedRecipes.list(actor) ?? [];
+      } catch {
+        marked = [];
+      }
+      const recipeIds = new Set([...marked.map(String), ...activeByRecipe.keys()]);
       for (const recipeId of recipeIds) {
         const recipe = api.recipes.get(recipeId, { includeDisabled: true });
         if (!recipe) continue;
         const job = activeByRecipe.get(recipeId) ?? null;
-        const readiness = job ? null : api.recipePlanner.plan(recipe, actor);
-        const environment = api.craftingEnvironment?.evaluate?.(recipe, { location }) ?? { passed: true };
-        if (!environment.passed || (!job && !readiness?.ready)) continue;
+        let readiness = null;
+        if (!job) {
+          try { readiness = api.recipePlanner.plan(recipe, actor); }
+          catch { readiness = { ready: false }; }
+        }
+        const checks = checkedPlaces.length
+          ? checkedPlaces.map(place => environmentAt(api, recipe, place))
+          : [environmentAt(api, recipe, null)];
+        const allowed = checks.find(result => result.passed) ?? null;
+        if (!job && (!readiness?.ready || !allowed)) continue;
         const progress = job ? visibleCraftingProgress(actor, api, recipeId, job.inventoryActorUuid) : null;
         const requiredHours = Number(progress?.hoursRequired ?? recipe.craft?.hoursRequired ?? 0);
         const completedHours = Number(progress?.progressHours ?? 0);
@@ -69,6 +99,7 @@ export class CraftworksProjectAdapter {
         const spentLabel = timeSpentHours > completedHours
           ? ` (${timeSpentHours} ${timeSpentHours === 1 ? "hour" : "hours"} spent)`
           : "";
+        const placeName = allowed?.place?.name ?? locationName;
         projects.push({
           id: `craftworks:${actor.id}:${recipeId}`,
           external: true,
@@ -78,9 +109,9 @@ export class CraftworksProjectAdapter {
           ownerUuid: actor.uuid,
           name: recipe.name,
           activityLabel: "Crafting",
-          status: job ? (environment.passed ? "in-progress" : "paused") : "ready",
+          status: job ? (allowed ? "in-progress" : "paused") : "ready",
           ownerName: actor.name,
-          locationName,
+          locationName: placeName,
           progressLabel: `${completedHours} / ${requiredHours} hours${spentLabel}`,
           progressPercent: requiredHours ? Math.min(100, Math.round(completedHours / requiredHours * 100)) : 0,
           canEditProject: true,

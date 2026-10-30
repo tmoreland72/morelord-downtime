@@ -12,19 +12,33 @@ const config = {
 const documents = { "Item.plate": { name: "Plate Armor" }, "Item.dagger": { name: "Dagger" }, "Item.thief": { name: "Thieves' Tools" } };
 const adapter = new Dnd5eProficiencyAdapter({ config, resolveUuid: uuid => documents[uuid], localize: value => value });
 
-test("adapter flattens system proficiency families and filters by an instructor's actual data", async () => {
+test("training choices use the fixed 2024 list and ignore CONFIG extras and compendium names", async () => {
   const actor = {
     uuid: "Actor.instructor",
     system: {
-      skills: { ste: { value: 1 } }, tools: { thief: { value: 1 } },
+      skills: { ste: { value: 1 }, homebrew: { value: 1 } }, tools: { thief: { value: 1 } },
       traits: { languages: { value: new Set(["dwarvish"]) }, armorProf: { value: new Set(["lgt"]) }, weaponProf: { value: new Set(["sim"]), mastery: { value: new Set(["dagger"]) } } }
     }
   };
   const choices = await adapter.listTrainingChoices({ actors: [actor] });
-  assert.ok(choices.some(choice => choice.value === "language:dwarvish" && choice.instructorUuids === actor.uuid));
-  assert.ok(choices.some(choice => choice.value === "toolProficiency:thief" && choice.label === "Thieves' Tools" && choice.instructorUuids === actor.uuid));
-  assert.ok(choices.some(choice => choice.value === "weaponMastery:dagger" && choice.instructorUuids === actor.uuid));
-  assert.ok(choices.some(choice => choice.value === "armorProficiency:plate" && choice.instructorUuids === ""));
+  assert.equal(choices.some(choice => choice.id === "homebrew" || choice.label === "Sneaking"), false);
+  assert.equal(choices.find(choice => choice.value === "skillProficiency:ste").label, "Stealth");
+  assert.equal(choices.find(choice => choice.value === "language:sign").label, "Common Sign Language");
+  assert.equal(choices.find(choice => choice.value === "language:dwarvish").instructorUuids, actor.uuid);
+  assert.equal(choices.find(choice => choice.value === "toolProficiency:thief").label, "Thieves' Tools");
+  assert.equal(choices.find(choice => choice.value === "toolProficiency:thief").instructorUuids, actor.uuid);
+  assert.equal(choices.find(choice => choice.value === "weaponMastery:dagger").id, choices.find(choice => choice.value === "weaponProficiency:dagger").id);
+  assert.equal(choices.find(choice => choice.value === "weaponMastery:dagger").instructorUuids, actor.uuid);
+  assert.equal(choices.find(choice => choice.value === "armorProficiency:plate").label, "Plate Armor");
+  assert.equal(choices.find(choice => choice.value === "armorProficiency:plate").instructorUuids, "");
+});
+
+test("training choices prefer Core's catalog when it is exposed", async () => {
+  const coreAdapter = new Dnd5eProficiencyAdapter({
+    catalog: () => [{ kind: "language", id: "sign", label: "Common Sign Language", category: "Language" }]
+  });
+  const choices = await coreAdapter.listTrainingChoices();
+  assert.deepEqual(choices.map(choice => choice.value), ["language:sign"]);
 });
 
 test("adapter awards set and mapping proficiencies, creating a missing tool record", async () => {

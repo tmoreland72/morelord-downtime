@@ -1,5 +1,15 @@
 # Morelord Downtime Changelog
 
+## 0.2.2
+
+### Fixed
+
+- Crafting projects stay in Downtime when the viewed scene can support the recipe. An active Session that is On the Road, or that has no Location, does not hide recipes Neverwinter can still support. Work already underway stays listed and shows as paused when neither place allows it. One recipe whose location check cannot be read no longer removes the rest of the crafting list.
+- **Commission** is no longer an **Available Activities** choice. **Source Item** remains, checked per Session. A GM logs hours spent sourcing an item from Session details or from the Source Item Project. Those hours are added to that character's allocated Session time. Advancing a campaign day does not itself spend Session hours for sourcing or commissions.
+- Only a GM can create, edit, or delete a Downtime Session. Players see Sessions read-only. Saving a Session is rejected for a player.
+- An NPC instructor can teach only subjects the Location's **Instructor** specialty allows. **Any** or a blank specialty allows every subject. Neverwinter limited to **Common Sign Language** offers only that language. The check uses Core's `locationAllowsSpecialty` when Morelord Core 0.9.0 provides it.
+- The training list is the fixed D&D 2024 set of skills, languages, tools, weapons, armor, and weapon masteries. It uses Core's training catalog when that catalog is exposed, so the ids match Locations. It does not follow Configure Sources, compendium items, or extra system entries.
+
 ## 0.2.1
 
 ### Fixed

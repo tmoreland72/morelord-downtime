@@ -11,6 +11,24 @@ function harness() {
   return { repository, sessions: new SessionService({ repository, idFactory: () => `session-${++sessionId}`, segmentIdFactory: () => `segment-${++segmentId}`, now: () => 100 }) };
 }
 
+test("players cannot create, edit, or delete Sessions", async () => {
+  const prior = globalThis.game;
+  globalThis.game = { user: { isGM: true } };
+  try {
+    const { sessions } = harness();
+    const draft = await sessions.create({ name: "Week", plannedDurationHours: 8, participants: [{ actorUuid: "Actor.aric", name: "Aric" }], availableActivities: ["training"] });
+    game.user.isGM = false;
+    await assert.rejects(() => sessions.create({ name: "Other", plannedDurationHours: 8, participants: [{ actorUuid: "Actor.aric" }] }), /Only a GM may modify Downtime Sessions/);
+    await assert.rejects(() => sessions.update(draft.id, { name: "Changed" }), /Only a GM may modify Downtime Sessions/);
+    await assert.rejects(() => sessions.removeUnused(draft.id), /Only a GM may modify Downtime Sessions/);
+    await assert.rejects(() => sessions.publish(draft.id), /Only a GM may modify Downtime Sessions/);
+    game.user.isGM = true;
+    assert.equal((await sessions.get(draft.id)).name, "Week");
+  } finally {
+    globalThis.game = prior;
+  }
+});
+
 test("a Session persists through draft, upcoming, active, and finalized lifecycle", async () => {
   const { repository, sessions } = harness();
   const draft = await sessions.create({ name: "A Week in Neverwinter", description: "Pursue personal goals.", locationId: "neverwinter", plannedDurationHours: 40, participants: [{ actorUuid: "Actor.aric", name: "Aric" }], availableActivities: ["training"] });

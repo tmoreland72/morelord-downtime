@@ -3,7 +3,7 @@ title: Morelord Downtime Documentation
 description: Manage persistent Projects, downtime Sessions, training, commissions, and item sourcing.
 slug: morelord-downtime
 product: morelord-downtime
-version: 0.2.1
+version: 0.2.2
 foundry: 14
 order: 0
 ---
@@ -32,7 +32,7 @@ Character choices include player-owned characters and character members of the p
 
 ## Player workflow
 
-Open Downtime to see Sessions and Projects relevant to characters you own. Create a Project, or plan an existing Project into an eligible Session. Once the Session is active, choose contributors and allocate hours. Each contributor spends the entered duration; the Project gains that duration once. A Project can continue across multiple Sessions. **Available Activities** includes Training, Crafting, Commission, and Source Item. When one of those is enabled, time spent on it is allocated to that character in the active Session.
+Open Downtime to see Sessions and Projects relevant to characters you own. Sessions are read-only for players. Only a GM can create, edit, or delete a Session. Create a Project, or plan an existing Project into an eligible Session. Once the Session is active, choose contributors and allocate hours. Each contributor spends the entered duration; the Project gains that duration once. A Project can continue across multiple Sessions. **Available Activities** includes Training, Crafting, and Source Item. When one of those is enabled, time spent on it is allocated to that character in the active Session.
 
 ## Activities
 
@@ -46,7 +46,7 @@ Research appears in New Project and Session activity choices only while the Drak
 
 ### Training
 
-Select the student, exact proficiency or weapon mastery, and instructor. Character instructors must know the selected proficiency, must differ from the student, and contribute the same hours. An NPC instructor can be recorded by name and tied to a Location. Successful completion applies the proficiency to the student and records the outcome.
+Select the student, exact proficiency or weapon mastery, and instructor. The training list is the fixed D&D 2024 set of skills, languages, tools, weapons, armor, and weapon masteries. It uses Morelord Core's catalog when Core exposes `listTrainingSpecialties`, so the ids match Locations. It does not read Configure Sources, compendium items, or extra `CONFIG.DND5E` entries. Character instructors must know the selected proficiency, must differ from the student, and contribute the same hours. An NPC instructor can be recorded by name and tied to a Location. That Location's **Instructor** specialty limits the subjects an NPC can teach. **Any**, or a blank specialty, allows every subject. Neverwinter's Instructor specialty **Common Sign Language** (`sign`) allows only that language. A character instructor is not limited by the Location specialty. Successful completion applies the proficiency to the student and records the outcome.
 
 Estimates appear after selecting the proficiency. Languages and tools use `(10 − positive Intelligence modifier) × 40` hours with a one-workweek floor. Other proficiencies and masteries use that baseline as a labeled GM-defined extension. The GM may adjust it, and existing saved durations are preserved.
 
@@ -54,17 +54,17 @@ Estimates appear after selecting the proficiency. Languages and tools use `(10 �
 
 Record the contractor, Location, item, labor days, and payment or material notes. **Select Item** searches enabled compendiums through Core and keeps the selected item UUID. Defaults are 5/10/50/125/250 labor days for Common/Uncommon/Rare/Very Rare/Legendary items, halved for consumables and rounded up. Mundane defaults use gp list price divided by 10, rounded up to at least one day. Scrolls and artifacts require a manual estimate.
 
-Commissions advance with campaign days. Each day that progresses spends one 8-hour labor day from the active Downtime Session when **Available Activities** includes **Commission** and the character is a participant. A day progressed while no such Session is active is not charged later. Finished work waits for collection at the contractor's Location. This is a time tracker: selecting an item does not purchase, craft, or deliver it automatically.
+Commissions advance with campaign days. Commission is not an **Available Activities** choice on a Session, and a progressed day does not spend Session hours. Finished work waits for collection at the contractor's Location. This is a time tracker: selecting an item does not purchase, craft, or deliver it automatically.
 
 ### Source Item
 
 Requires Marketplace. Select a Common through Legendary magic item from the character's Marketplace wishlist, a Location, and Arcana or Investigation. Commit at least 100 gp and one week. Gold is spent immediately; extra gold and weeks improve the hidden check. Guidance and Help do not apply.
 
-Each sourcing day that progresses spends 8 hours from the active Downtime Session when **Available Activities** includes **Source Item** and the character is a participant. A day progressed while no such Session is active is not charged later. Completion reveals an offer for the requested item or 1d4 Marketplace alternatives of the same or lower rarity. One unassisted Persuasion check can adjust offer prices. The initial investment is not refunded if the search fails; later edits can add investment or weeks but cannot reduce or redirect the committed investment.
+**Source Item** is also an **Available Activities** choice, checked per Session, like Crafting. On an active Session that includes it, the GM uses **Log Sourcing Time** to record hours a participant spent looking for an item. The same control is on an open Source Item Project. Those hours are added to that character's allocated Session time. A day advanced on the Project does not itself spend Session hours, and time logged while Source Item is not enabled is not applied later. Completion reveals an offer for the requested item or 1d4 Marketplace alternatives of the same or lower rarity. One unassisted Persuasion check can adjust offer prices. The initial investment is not refunded if the search fails; later edits can add investment or weeks but cannot reduce or redirect the committed investment.
 
 ### Crafting
 
-Craftworks owns recipes, materials, jobs, checks, and outputs. Ready marked recipes and active jobs appear in **Projects**. Opening one launches Craftworks with the crafter selected. The progress column shows successful crafting progress. When failed checks make the hours spent greater than that progress, the row also shows the hours spent, for example `2 / 8 hours (4 hours spent)`.
+Craftworks owns recipes, materials, jobs, checks, and outputs. Ready marked recipes and active jobs appear in **Projects**. A recipe appears when the character can work it at the viewed scene or at the active Session's place. An active Session that is **On the Road**, or that has no Location, does not hide recipes the scene still allows. Neverwinter remains the crafting place while that scene is the one being viewed. Work already underway stays in the list and shows as paused when neither place allows it. Opening a row launches Craftworks with the crafter selected. The progress column shows successful crafting progress. When failed checks make the hours spent greater than that progress, the row also shows the hours spent, for example `2 / 8 hours (4 hours spent)`.
 
 While a Downtime Session is **Active** and **Available Activities** includes **Crafting**, hours spent crafting are added to that character's allocated Session time. The player callout and the GM **Unallocated** total both use that allocation. This includes every crafting check, including a failed check, and a recipe that finishes without a check. The character must be a participant in the active Session. The primary active GM records the time, including a GM who is listed in Core's Ignored Users. A player can craft for a character they own, and a GM can craft for a character whose player is disconnected; the time is recorded once. If the primary GM is disconnected while the check is made, the time is recorded when that GM is connected again, as long as the Session is still active.
 
@@ -85,7 +85,9 @@ Project and Session details show history newest first, with timestamps and reada
 - **Downtime is not under Morelord Tools, or an open window does not update after crafting:** update Morelord Core to 0.9.0 or newer. Until Core provides that tools registry, the same timer button stays on the Token controls. Core 0.9.0 refreshes the open window without bringing it forward.
 - **No available hours:** the GM must start a Session that includes the character and permits the activity.
 - **Request does not complete:** confirm a GM is connected and Core is enabled.
-- **Crafting, Commission, or Source Item did not reduce available time:** start a Downtime Session that includes the character and enable that activity under **Available Activities**. Keep the primary GM connected for crafting checks. Time spent before the Session allowed the activity is not applied later. Cancelling a craft does not return time already recorded.
+- **Crafting or Source Item did not reduce available time:** start a Downtime Session that includes the character and enable that activity under **Available Activities**. For Source Item, use **Log Sourcing Time** and enter the hours. Keep the primary GM connected for crafting checks. Time spent before the Session allowed the activity is not applied later. Cancelling a craft does not return time already recorded.
+- **Crafting projects are missing:** confirm the character is viewing the scene for that Location, such as Neverwinter. Recipes that Location cannot support stay off the list. Work already started stays visible.
+- **A player cannot change a Session:** only a GM can create, edit, or delete Sessions. Players open them read-only.
 - **Missing crafting or sourcing options:** check the optional integration and its required version; sourcing also needs an eligible wishlist item.
 - **Activity cannot progress:** review the Project's participants, status, Location, and capability requirements.
 - **Project disappeared after cancellation:** enable **Show Completed**.

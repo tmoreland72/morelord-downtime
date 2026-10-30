@@ -1,5 +1,6 @@
 import { trainingDefault } from "../../domain/project-defaults.mjs";
 import { createProject } from "../../domain/project.mjs";
+import { isUnrestrictedSpecialty, locationAllowsSpecialty } from "../../domain/instructor-specialty.mjs";
 
 export const TRAINING_ACTIVITY_ID = "training";
 export const TRAINING_KINDS = Object.freeze(["artisanTool", "toolProficiency", "skillProficiency", "language", "armorProficiency", "weaponProficiency", "weaponMastery"]);
@@ -55,7 +56,7 @@ export function createTrainingProject(data = {}, options = {}) {
   }, options);
 }
 
-export function canProgressTraining(project, { segment, participantActorUuids = [] } = {}) {
+export function canProgressTraining(project, { segment, participantActorUuids = [], location = null } = {}) {
   const training = project.metadata?.training;
   if (!training) return { passed: false, reasons: ["Training metadata is missing."] };
   if (segment?.source === "journey" && !training.travelCompatible) {
@@ -71,6 +72,9 @@ export function canProgressTraining(project, { segment, participantActorUuids = 
     if (project.locationId && segment?.locationId !== project.locationId) {
       return { passed: false, reasons: ["The NPC instructor is only available at the Project's Location."] };
     }
+    if (location && !locationAllowsSpecialty(location, "instructor", training.proficiencyId)) {
+      return { passed: false, reasons: ["This Location's Instructor cannot teach that subject."] };
+    }
   } else if (instructor.mode === "provider") {
     if (!project.provider || (instructor.providerId && project.provider.id !== instructor.providerId)) {
       return { passed: false, reasons: ["The selected instructor provider is unavailable."] };
@@ -80,7 +84,7 @@ export function canProgressTraining(project, { segment, participantActorUuids = 
     }
     const capability = project.provider.capabilities.find(entry =>
       entry.type === "instructor"
-      && (!entry.specialty || entry.specialty === training.proficiencyId)
+      && (isUnrestrictedSpecialty(entry.specialty) || entry.specialty === training.proficiencyId)
     );
     if (!capability) return { passed: false, reasons: ["The provider cannot teach this proficiency."] };
   } else {
