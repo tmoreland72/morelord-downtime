@@ -48,13 +48,25 @@ The Project, allocation, and first activity contracts support the dashboard and 
 
 Time allocation is atomic with Project progress: every participant spends the shared duration, while the Project gains that duration once.
 
-Training is an activity plugin. The training list is the fixed D&D 2024 set of skills, languages, tools, weapons, armor, and weapon masteries, using Core's catalog when it is exposed. An NPC or provider instructor is limited to that Instructor specialty. The specialty is a list of keys; an empty list or a blank value allows every subject, and a single saved value is still that one key. Training supports participant or provider instructors, travel compatibility, persistent progress across Sessions, and safe proficiency awards.
+Training is an activity plugin. The training list is the fixed D&D 2024 set of skills, languages, tools, weapons, armor, and weapon masteries, using Core's catalog when it is exposed. NPC and provider instructors follow the location rules in [Shared Locations](docs/README.md#shared-locations). Training supports participant or provider instructors, travel compatibility, persistent progress across Sessions, and safe proficiency awards.
 
 Downtime provides the structured GM/player dashboard and full Downtime Session lifecycle. GMs prepare and publish Sessions, monitor intervention queues, finalize with validation, and review history from Session details. Only a GM can create, edit, or delete a Session. Players see Sessions read-only. Project and Session history use readable text and referenced names instead of JSON, including existing saved records. Players preview relevant Sessions, create permitted Projects, and allocate time through GM-authoritative requests. The dashboard places Downtime Sessions above Projects and launches the same Core-owned Manage Locations application used throughout the suite.
 
 Source Item is an elapsed activity backed by Marketplace. A character selects a Common through Legendary magic item from their Marketplace wishlist, spends at least 100 gp, and commits at least one week. Gold and extra weeks improve a hidden Arcana or Investigation result; completion reveals either the requested item's offer price or 1d4 Marketplace-selected alternatives of the same or lower rarity. One unassisted Persuasion result may then adjust the offers. **Source Item** appears in a Session's **Available Activities** with Training and Crafting. The GM logs the hours spent sourcing, and those hours count toward that character's Session allocation.
 
 Sessions are persistent downtime opportunities distinct from Projects. GMs can prepare drafts, publish upcoming opportunities, start them to make time available, and finalize with unresolved-time validation. Players see only Sessions and Projects relevant to Actors they own. Their Project creation and allocation requests are validated and committed by the primary active GM; Project choices come from the active Session rather than a hardcoded player menu.
+
+## Shared Locations
+
+Downtime reads locations from Morelord Core. The full rules are in the [user guide](docs/README.md#shared-locations). GMs open **Manage Locations** on the Downtime dashboard, or **Manage Shared Locations** in Core. Field setup is in Core's [Shared Locations](https://morelordgaming.com/docs/morelord-core) documentation.
+
+- An **Instructor** specialty list limits an NPC instructor, and a provider instructor, to the checked subjects. With nothing checked, the summary reads **Any**, and every training subject is allowed. Several checked specialties are all allowed. A specialty saved as one value remains that one subject. A location with no **Instructor** capability has no NPC subjects. A character instructor teaches subjects that character already knows.
+- A Training Project can stay on **No fixed Location**. The NPC subject list stays open until a location applies: the Project's location, or the Session's location when hours are allocated. A Project that has a location receives Session hours only while the Session is at that location.
+- **Crafting** uses the capability type and tier on the recipe's **Facility** line. **No facility required** allows the recipe at any place. A named facility needs that type at a tier at least as high as the item's rarity. A Forge or Workshop meets that facility when **Specialty** is **Any** and when **Specialty** lists particular entries. In Craftworks, under **Crafting**, each artisan's tool is assigned that facility; until then the facility is **No facility required**. Recipes from the Drakkenheim content pack use a Workshop at the item's rarity.
+- A Session set to **No Location** is **On the Road**, a temporary place with no capabilities. Crafting recipes the viewed scene allows stay listed. An NPC whose Project has no location can train during that Session. An NPC whose Project names a location waits until the Session is there.
+- **Source Item** and **Commission** require a chosen location. Source Item stores it. A commission is collected there. **Research Drakkenheim Recipes** has no Location field.
+
+Players see the Session location, or **No Location**. Sessions stay read-only for players, and **Manage Locations** is GM-only. The same specialty and crafting rules apply when a player creates a Training Project or works a recipe.
 
 ## Cancelling and deleting Projects
 
