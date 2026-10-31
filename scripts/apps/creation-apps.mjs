@@ -7,6 +7,19 @@ import { DowntimeApplication } from "./downtime-application.mjs";
 import { getCoreParticipation } from "../integrations/core-api.mjs";
 
 const characterChoices = (options = {}) => getCoreParticipation().listCharacterChoices(options);
+
+async function worldActorUuid(uuid) {
+  const value = String(uuid ?? "").trim();
+  if (!value || typeof globalThis.fromUuid !== "function") return null;
+  try {
+    const document = await fromUuid(value);
+    const actor = document?.documentName === "Actor" ? document : document?.actor;
+    if (!actor?.uuid) return null;
+    return { uuid: actor.uuid, name: actor.name ?? null };
+  } catch {
+    return null;
+  }
+}
 const selectedCharacterUuids = form => getCoreParticipation().selectedCharacterUuids(form);
 const participantRecords = uuids => getCoreParticipation().participantRecords(uuids);
 
@@ -253,7 +266,11 @@ export class TrainingProjectApp extends DowntimeApplication {
     try {
       const ownerUuid = String(form.get("ownerUuid") ?? "");
       const instructorSelection = String(form.get("instructorSelection") ?? "");
-      const instructorUuid = instructorSelection === "npc" ? null : instructorSelection;
+      const selectedInstructor = instructorSelection === "npc" ? null : await worldActorUuid(instructorSelection);
+      const instructorUuid = selectedInstructor?.uuid ?? (instructorSelection === "npc" ? null : instructorSelection);
+      const instructorName = selectedInstructor?.name
+        ?? this.element.querySelector('[name="instructorSelection"] option:checked')?.textContent?.trim()
+        ?? null;
       const npcInstructorName = String(form.get("npcInstructorName") ?? "").trim();
       const [kind, proficiencyId] = String(form.get("proficiency") ?? "").split(":", 2);
       const requiredHours = Number(form.get("requiredHours"));
@@ -273,7 +290,7 @@ export class TrainingProjectApp extends DowntimeApplication {
         proficiencyLabel: selected?.label ?? proficiencyId,
         locationId,
         owner: { uuid: ownerUuid, name: game.actors.get(ownerUuid.split(".").at(-1))?.name ?? null },
-        instructor: instructorSelection === "npc" ? { mode: "npc", name: npcInstructorName } : { mode: "participant", actorUuid: instructorUuid },
+        instructor: instructorSelection === "npc" ? { mode: "npc", name: npcInstructorName } : { mode: "participant", actorUuid: instructorUuid, name: instructorName },
         participants: instructorSelection === "npc"
           ? [{ actorUuid: ownerUuid, role: "student", approved: true }]
           : [{ actorUuid: ownerUuid, role: "student", approved: true }, { actorUuid: instructorUuid, role: "instructor", approved: true }]

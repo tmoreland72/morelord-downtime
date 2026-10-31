@@ -1,13 +1,14 @@
 import { applyEffort } from "../domain/project.mjs";
 import { allocateSegmentHours, createSegment, remainingHours } from "../domain/segment.mjs";
-import { withCharacterInstructor } from "../activities/training/training-activity.mjs";
+import { characterInstructorUuid, sameActor, withCharacterInstructor } from "../activities/training/training-activity.mjs";
 
 export class SegmentService {
-  constructor({ repository, activityRegistry, requirementEvaluator = null, getLocation = null, idFactory = null, now = () => Date.now() }) {
+  constructor({ repository, activityRegistry, requirementEvaluator = null, getLocation = null, resolveActor = null, idFactory = null, now = () => Date.now() }) {
     this.repository = repository;
     this.activityRegistry = activityRegistry;
     this.requirementEvaluator = requirementEvaluator;
     this.getLocation = getLocation;
+    this.resolveActor = resolveActor;
     this.idFactory = idFactory;
     this.now = now;
   }
@@ -95,34 +96,51 @@ export class SegmentService {
     return { passed: reasons.length === 0, reasons };
   }
 
+  async #sessionInstructor(project, segment) {
+    const raw = characterInstructorUuid(project);
+    if (!raw || !segment) return null;
+    const resolved = typeof this.resolveActor === "function" ? await this.resolveActor(raw) : raw;
+    const candidates = [resolved, raw].map(value => String(value ?? "").trim()).filter(Boolean);
+    const instructor = segment.participants.find(entry => candidates.some(uuid => sameActor(entry.actorUuid, uuid)));
+    const name = project.metadata?.training?.instructor?.name || instructor?.name || "The instructor";
+    if (!instructor) throw new Error(`${name} is not part of this Downtime Session, so the same training hours cannot be spent.`);
+    return instructor;
+  }
+
   async allocate({ segmentId, projectId, participantActorUuids, hours }) {
     this.#requireGm();
     const state = await this.repository.read();
     const segment = state.segments[String(segmentId)];
     const project = state.projects[String(projectId)];
     const session = segment?.metadata?.sessionId ? state.sessions[String(segment.metadata.sessionId)] : null;
-    const actors = withCharacterInstructor(project, participantActorUuids);
-    const instructorUuid = project?.metadata?.training?.instructor?.mode === "participant"
-      ? String(project.metadata.training.instructor.actorUuid ?? "").trim()
-      : "";
-    if (instructorUuid && segment) {
-      const instructor = segment.participants.find(entry => entry.actorUuid === instructorUuid);
-      const name = instructor?.name || "The instructor";
-      if (!instructor) throw new Error(`${name} is not part of this Downtime Session, so the same training hours cannot be spent.`);
-      if (remainingHours(instructor) < Math.max(0, Number(hours ?? 0))) {
-        throw new Error(`${name} does not have enough remaining downtime hours. Training spends the same hours for the student and the instructor.`);
+    const instructor = await this.#sessionInstructor(project, segment);
+    const instructorUuid = instructor?.actorUuid ?? characterInstructorUuid(project);
+    const actors = withCharacterInstructor(project, participantActorUuids, instructorUuid);
+    if (instructor && remainingHours(instructor) < Math.max(0, Number(hours ?? 0))) {
+      const name = instructor.name || project.metadata?.training?.instructor?.name || "The instructor";
+      throw new Error(`${name} does not have enough remaining downtime hours. Training spends the same hours for the student and the instructor.`);
+    }
+    const projectForCheck = structuredClone(project);
+    if (instructor && projectForCheck.metadata?.training) {
+      projectForCheck.metadata.training.instructor = {
+        ...(projectForCheck.metadata.training.instructor ?? {}),
+        mode: "participant",
+        actorUuid: instructor.actorUuid
+      };
+      if (!projectForCheck.participants.some(entry => sameActor(entry.actorUuid, instructor.actorUuid))) {
+        projectForCheck.participants.push({ actorUuid: instructor.actorUuid, role: "instructor", approved: true, hoursContributed: 0 });
       }
     }
-    const eligibility = await this.evaluateAllocation({ segment, project, session, participantActorUuids: actors, hours });
+    const eligibility = await this.evaluateAllocation({ segment, project: projectForCheck, session, participantActorUuids: actors, hours });
     if (!eligibility.passed) throw new Error(eligibility.reasons.join(" "));
     const { segment: updatedSegment, allocation } = allocateSegmentHours(segment, {
       projectId, participantActorUuids: actors, hours, at: this.now()
     });
     // Collaborative work consumes the same duration from every participant,
     // but advances the shared Project only once.
-    let updatedProject = applyEffort(project, hours, { at: this.now() });
+    let updatedProject = applyEffort(projectForCheck, hours, { at: this.now() });
     for (const actorUuid of allocation.participantActorUuids) {
-      const participant = updatedProject.participants.find(entry => entry.actorUuid === actorUuid);
+      const participant = updatedProject.participants.find(entry => sameActor(entry.actorUuid, actorUuid));
       if (participant) participant.hoursContributed += allocation.hours;
     }
     if (["completed", "awaiting-collection"].includes(updatedProject.status) && !["completed", "awaiting-collection"].includes(project.status)) {

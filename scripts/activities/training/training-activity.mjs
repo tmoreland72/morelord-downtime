@@ -58,17 +58,49 @@ export function createTrainingProject(data = {}, options = {}) {
 
 /** A player-character instructor spends the same session hours as the student. */
 export function characterInstructorUuid(project) {
-  const instructor = project?.metadata?.training?.instructor;
-  if (String(instructor?.mode ?? "") !== "participant") return null;
-  const actorUuid = String(instructor?.actorUuid ?? "").trim();
-  return actorUuid || null;
+  const instructor = project?.metadata?.training?.instructor ?? {};
+  const mode = String(instructor.mode ?? "");
+  if (mode === "npc" || mode === "provider") return null;
+  const actorUuid = String(instructor.actorUuid ?? "").trim();
+  if (actorUuid) return actorUuid;
+  const role = (project?.participants ?? []).find(entry => entry.role === "instructor");
+  return String(role?.actorUuid ?? "").trim() || null;
 }
 
-export function withCharacterInstructor(project, participantActorUuids = []) {
+/** Actor.abc and abc are the same world actor. Token UUIDs are resolved before this comparison. */
+export function sameActor(left, right) {
+  const a = String(left ?? "").trim();
+  const b = String(right ?? "").trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const actorId = value => {
+    if (value.includes("Token.")) return "";
+    return value.startsWith("Actor.") ? value.slice("Actor.".length) : (value.includes(".") ? "" : value);
+  };
+  const aId = actorId(a);
+  const bId = actorId(b);
+  return Boolean(aId) && aId === bId;
+}
+
+export function withCharacterInstructor(project, participantActorUuids = [], instructorUuid = characterInstructorUuid(project)) {
   const actors = [...new Set((participantActorUuids ?? []).map(String).filter(Boolean))];
-  const instructorUuid = characterInstructorUuid(project);
-  if (instructorUuid && !actors.includes(instructorUuid)) actors.push(instructorUuid);
+  if (instructorUuid && !actors.some(uuid => sameActor(uuid, instructorUuid))) actors.push(instructorUuid);
   return actors;
+}
+
+export function trainingAudience(project, ownedUuids = []) {
+  const owned = [...ownedUuids].map(String);
+  const owns = uuid => owned.some(id => sameActor(id, uuid));
+  const instructorUuid = characterInstructorUuid(project);
+  const instructs = Boolean(instructorUuid && owns(instructorUuid));
+  const ownsStudent = owns(project?.owner?.uuid);
+  const studentName = project?.owner?.name || "the student";
+  return {
+    instructs,
+    ownsStudent,
+    readOnly: instructs && !ownsStudent,
+    listName: instructs && !ownsStudent ? `Instructing ${studentName}` : (project?.name ?? "")
+  };
 }
 
 export function canProgressTraining(project, { segment, participantActorUuids = [], location = null } = {}) {
@@ -80,8 +112,12 @@ export function canProgressTraining(project, { segment, participantActorUuids = 
   const instructor = training.instructor ?? { mode: "none" };
   if (instructor.mode === "participant") {
     const participant = project.participants.find(entry => entry.actorUuid === instructor.actorUuid && entry.role === "instructor");
-    if (!participant) return { passed: false, reasons: ["The character instructor is not a Project participant."] };
-    if (!participantActorUuids.includes(instructor.actorUuid)) return { passed: false, reasons: ["The instructor must allocate the same hours."] };
+    if (!participant && !participantActorUuids.some(uuid => sameActor(uuid, instructor.actorUuid))) {
+      return { passed: false, reasons: ["The character instructor is not a Project participant."] };
+    }
+    if (!participantActorUuids.some(uuid => sameActor(uuid, instructor.actorUuid))) {
+      return { passed: false, reasons: ["The instructor must allocate the same hours."] };
+    }
   } else if (instructor.mode === "npc") {
     if (!instructor.name) return { passed: false, reasons: ["The NPC instructor needs a name."] };
     if (project.locationId && segment?.locationId !== project.locationId) {

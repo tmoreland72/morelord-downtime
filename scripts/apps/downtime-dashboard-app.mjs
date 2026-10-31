@@ -1,4 +1,5 @@
 import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-participation.js";
+import { sameActor, trainingAudience } from "../activities/training/training-activity.mjs";
 import { projectManagementActions } from "./project-management.mjs";
 import { NewProjectApp, SessionEditorApp } from "./creation-apps.mjs";
 import { ProjectDetailApp, SessionDetailApp } from "./detail-apps.mjs";
@@ -79,7 +80,8 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
     const [allProjects, allSegments, allSessions] = await Promise.all([projects.list(), segments.list(), sessions.list()]);
     const isGm = game.user.isGM;
     const ownedActorUuids = new Set(listCharacterActors({ ownedOnly: true }).map(actor => actor.uuid));
-    const isParticipant = entries => entries.some(entry => ownedActorUuids.has(entry.actorUuid));
+    const ownsActor = uuid => [...ownedActorUuids].some(id => sameActor(id, uuid));
+    const isParticipant = entries => entries.some(entry => ownsActor(entry.actorUuid));
     const openSegments = allSegments.filter(segment => segment.status === "open" && (isGm || isParticipant(segment.participants)));
     const locationRecords = locations()?.list?.() ?? [];
     const projectIsUnused = project => project.progress.effort.completedHours === 0
@@ -88,7 +90,8 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
       && !allSegments.some(segment => segment.allocations.some(allocation => allocation.projectId === project.id))
       && project.history.every(entry => ["created", "updated", "cancelled"].includes(entry.type));
     const visibleProjects = allProjects.filter(project => isGm
-      || ownedActorUuids.has(project.owner.uuid)
+      || ownsActor(project.owner.uuid)
+      || trainingAudience(project, ownedActorUuids).instructs
       || isParticipant(project.participants));
     const visibleSessions = allSessions.filter(session => isGm
       || (["pending", "active", "finalized", "cancelled"].includes(session.status) && isParticipant(session.participants)));
@@ -112,7 +115,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
     const activityTypes = activities.list({ availableOnly: true })
       .map(activity => ({ id: activity.id, name: activity.name, icon: activity.icon, description: activity.description }));
     const opportunity = opportunitySegments.reduce((summary, segment) => {
-      for (const participant of segment.participants.filter(entry => ownedActorUuids.has(entry.actorUuid))) {
+      for (const participant of segment.participants.filter(entry => ownsActor(entry.actorUuid))) {
         summary.available += participant.availableHours;
         summary.allocated += participant.allocatedHours;
       }
@@ -136,8 +139,10 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
       const effort = project.progress.effort;
       const elapsed = project.progress.elapsed;
       const usesElapsed = ["elapsed", "hybrid"].includes(project.progress.mode);
+      const audience = trainingAudience(project, ownedActorUuids);
       return {
         ...project,
+        name: !isGm && audience.instructs && !audience.ownsStudent ? audience.listName : project.name,
         activityLabel: titleCase(project.activityType),
         ownerName: project.owner.name ?? project.owner.uuid,
         locationName: locationRecords.find(location => location.id === project.locationId)?.name ?? "Any Location",
@@ -148,10 +153,10 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
         canEditProject: typeof activities.get(project.activityType)?.edit === "function"
           && (["planned", "active", "paused", "waiting"].includes(project.status)
             || (project.activityType === "commission" && project.status === "awaiting-collection"))
-          && (isGm || ownedActorUuids.has(project.owner.uuid)),
-        canCancelProject: !["completed", "awaiting-collection", "cancelled", "failed"].includes(project.status) && (isGm || ownedActorUuids.has(project.owner.uuid)),
-        canDeleteProject: (project.status === "cancelled" || projectIsUnused(project)) && (isGm || ownedActorUuids.has(project.owner.uuid)),
-        canCollectProject: project.activityType === "commission" && project.status === "awaiting-collection" && (isGm || ownedActorUuids.has(project.owner.uuid)),
+          && (isGm || ownsActor(project.owner.uuid)),
+        canCancelProject: !["completed", "awaiting-collection", "cancelled", "failed"].includes(project.status) && (isGm || ownsActor(project.owner.uuid)),
+        canDeleteProject: (project.status === "cancelled" || projectIsUnused(project)) && (isGm || ownsActor(project.owner.uuid)),
+        canCollectProject: project.activityType === "commission" && project.status === "awaiting-collection" && (isGm || ownsActor(project.owner.uuid)),
         isClosed: ["completed", "cancelled", "failed"].includes(project.status)
           || (project.status === "awaiting-collection" && project.activityType !== "commission")
       };

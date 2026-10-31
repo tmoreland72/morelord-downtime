@@ -66,6 +66,14 @@ const segments = new SegmentService({
   repository,
   activityRegistry: activities,
   getLocation: id => getCoreApi()?.locations?.get?.(id) ?? null,
+  resolveActor: async uuid => {
+    try {
+      const document = await fromUuid(uuid);
+      if (document?.documentName === "Actor") return document.uuid;
+      if (document?.actor?.uuid) return document.actor.uuid;
+    } catch { /* keep the stored id */ }
+    return uuid;
+  },
   requirementEvaluator: (requirements, context) => {
     const locations = getCoreApi()?.locations;
     if (!locations?.evaluate) return { passed: false, reasons: ["Morelord Core Location services are unavailable."] };

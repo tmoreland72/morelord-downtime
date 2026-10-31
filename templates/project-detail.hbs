@@ -10,6 +10,7 @@
       <div><dt>Participants</dt><dd>{{project.participantSummary}}</dd></div>
       <div><dt>Location</dt><dd>{{project.locationName}}</dd></div>
       {{#if project.instructorName}}<div><dt>Instructor</dt><dd>{{project.instructorName}}</dd></div>{{/if}}
+      {{#if project.instructingNote}}<p>{{project.instructingNote}}</p>{{/if}}
       {{#if project.usesEffort}}<div><dt>Effort</dt><dd>{{project.effortLabel}}</dd></div>{{/if}}
       {{#if project.usesElapsed}}<div><dt>Elapsed Time</dt><dd>{{project.elapsedLabel}}</dd></div>{{/if}}
     </dl>

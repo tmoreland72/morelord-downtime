@@ -1,4 +1,5 @@
 import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-participation.js";
+import { sameActor, trainingAudience } from "../activities/training/training-activity.mjs";
 import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { titleCase } from "../ui/formatting.mjs";
@@ -117,7 +118,8 @@ export class ProjectDetailApp extends DetailApplication {
     const requiredActors = new Set([project.owner.uuid, ...project.participants.map(participant => participant.actorUuid)]);
     const upcomingSession = (await this.constructor.services.sessions.list({ status: "pending", participantActorUuid: project.owner.uuid }))
       .find(session => session.availableActivities.includes(project.activityType));
-    const canManage = game.user.isGM || ownedActorUuids.has(project.owner.uuid);
+    const canManage = game.user.isGM || [...ownedActorUuids].some(uuid => sameActor(uuid, project.owner.uuid));
+    const audience = trainingAudience(project, ownedActorUuids);
     const sourcingSession = sourceItem && game.user.isGM
       ? activeSessions.find(session => session.availableActivities.includes(SOURCE_ITEM_ACTIVITY_ID)
         && session.participants.some(entry => entry.actorUuid === project.owner.uuid))
@@ -131,6 +133,7 @@ export class ProjectDetailApp extends DetailApplication {
         activityLabel: this.constructor.services.activities.get(project.activityType)?.name ?? titleCase(project.activityType),
         ownerName: project.owner.name ?? project.owner.uuid,
         locationName: locations.find(location => location.id === project.locationId)?.name ?? "Any Location",
+        instructingNote: !game.user?.isGM && audience.readOnly ? `You are instructing ${project.owner.name || "the student"}. This project is read-only.` : "",
         instructorName: training ? (training.instructor?.mode === "npc"
           ? training.instructor.name
           : game.actors.get(training.instructor?.actorUuid?.split(".").at(-1))?.name ?? "Not assigned") : null,
@@ -150,7 +153,7 @@ export class ProjectDetailApp extends DetailApplication {
         allocationParticipants: (allocationPool?.participants ?? []).map(participant => ({
           ...participant,
           remainingHours: Math.max(0, participant.availableHours - participant.allocatedHours),
-          checked: requiredActors.has(participant.actorUuid)
+          checked: [...requiredActors].some(uuid => sameActor(uuid, participant.actorUuid))
         })),
         commission: commission ? {
           contractorName: commission.contractorName,
