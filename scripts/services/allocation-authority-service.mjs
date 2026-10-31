@@ -1,4 +1,5 @@
 import { MODULE_ID } from "../constants.mjs";
+import { assertPlayerTrainingHours, trainingDefault } from "../domain/project-defaults.mjs";
 
 const CHANNEL = `module.${MODULE_ID}`;
 
@@ -133,6 +134,12 @@ export class AllocationAuthorityService {
         result = await this.getTraining().createProject(input);
       } else if (kind === "trainingUpdate") {
         await this.#authorizeProjectOwner(message.userId, message.input.projectId);
+        const existing = await this.projects.get(message.input.projectId);
+        assertPlayerTrainingHours({
+          isGm: game.users.get(message.userId)?.isGM === true,
+          requestedHours: message.input.input?.requiredHours,
+          allowedHours: existing?.progress?.effort?.requiredHours
+        });
         result = await this.getTraining().updateProject(message.input.projectId, message.input.input);
       } else if (kind === "commission") {
         await this.#authorizeOwnedActor(message.userId, message.input.owner?.uuid);
@@ -194,6 +201,12 @@ export class AllocationAuthorityService {
     if (!user?.active) throw new Error("Requesting player is unavailable.");
     const ownerActor = await fromUuid(input.owner?.uuid);
     if (!ownerActor?.testUserPermission(user, "OWNER")) throw new Error("You do not control the selected student.");
+    const modifier = Number(ownerActor?.system?.abilities?.int?.mod ?? 0);
+    assertPlayerTrainingHours({
+      isGm: user.isGM === true,
+      requestedHours: input.requiredHours,
+      allowedHours: trainingDefault(input.kind, modifier).hours
+    });
     return input;
   }
 

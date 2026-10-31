@@ -162,6 +162,7 @@ export class TrainingProjectApp extends DowntimeApplication {
       locations: (this.constructor.services.locations()?.list?.() ?? []).map(location => ({ ...location, selected: location.id === project?.locationId })),
       selectedTraining,
       requiredHours: project?.progress?.effort?.requiredHours ?? "",
+      canEditRequiredHours: game.user?.isGM === true,
       trainingGuidance: selectedTraining ? trainingDefault(selectedTraining.kind, game.actors.get(defaultStudentUuid.split(".").at(-1))?.system?.abilities?.int?.mod).guidance : ""
     };
   }
@@ -204,7 +205,9 @@ export class TrainingProjectApp extends DowntimeApplication {
     const actor = game.actors.get(ownerUuid.split(".").at(-1));
     const defaults = trainingDefault(choice.kind, actor?.system?.abilities?.int?.mod);
     this.element.querySelector("[data-training-hours]").hidden = false;
-    this.element.querySelector('[name="requiredHours"]').value = defaults.hours;
+    if (!this.projectId || game.user?.isGM === true) {
+      for (const input of this.element.querySelectorAll('[name="requiredHours"]')) input.value = defaults.hours;
+    }
     this.element.querySelector("[data-training-guidance]").textContent = defaults.guidance;
   }
 
