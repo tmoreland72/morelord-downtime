@@ -49,7 +49,8 @@ const marketplaceSourcing = new MarketplaceSourcingAdapter();
 const sourceItemResolution = new SourceItemResolutionService({
   catalog: marketplaceSourcing,
   getRequests: () => getCoreApi()?.chatRequests,
-  commit: project => projects.commit(project)
+  commit: project => projects.commit(project),
+  getLocation: id => getCoreApi()?.locations?.get?.(id) ?? null
 });
 const trainingAwards = new TrainingAwardService({ proficiencyAdapter: proficiencies });
 const research = new RecipeResearchService();

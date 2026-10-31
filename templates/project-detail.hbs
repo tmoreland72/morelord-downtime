@@ -22,7 +22,9 @@
       <div><dt>Check Total</dt><dd>{{project.sourceItem.outcome.checkTotal}} check + {{project.sourceItem.outcome.investmentBonus}} investment = {{project.sourceItem.outcome.total}}</dd></div>
       {{#if project.sourceItem.targetPriceLabel}}<div><dt>Offer Price</dt><dd>{{project.sourceItem.targetPriceLabel}}</dd></div>{{/if}}
       {{#if project.sourceItem.persuasionLabel}}<div><dt>Persuasion</dt><dd>{{project.sourceItem.persuasionLabel}}</dd></div>{{/if}}
+      {{#if project.sourceItem.collectionNotice}}{{#if project.sourceItem.collectionNotice.assigned}}<div><dt>Pickup</dt><dd>{{project.sourceItem.collectionNotice.message}}</dd></div>{{/if}}{{/if}}
     </dl>
+    {{#if project.sourceItem.collectionNotice}}{{#unless project.sourceItem.collectionNotice.assigned}}<p>{{project.sourceItem.collectionNotice.message}}</p>{{/unless}}{{/if}}
     <div class="ml-stack" data-gap="2">
       <h3>Persuasion price tiers</h3>
       <p>One Persuasion check compares the roll with this search's DC. The price cannot rise by more than 10% or fall by more than 25%.</p>

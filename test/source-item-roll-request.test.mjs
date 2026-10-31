@@ -97,3 +97,47 @@ test("the chat Roll button opens the native skill dialog and applies that roll",
     else globalThis[key] = value;
   }
 });
+
+test("the success chat card names the pickup location and a blank location omits that line", async () => {
+  const previous = { Roll: globalThis.Roll, ChatMessage: globalThis.ChatMessage, foundry: globalThis.foundry, game: globalThis.game };
+  globalThis.game = { messages: { get: () => null } };
+  globalThis.Roll = class {
+    constructor(formula) { this.formula = formula; }
+    async evaluate() { return { total: this.formula === "1d4" ? 1 : 500 }; }
+  };
+  globalThis.ChatMessage = { create: async () => {}, getSpeaker: () => ({}) };
+  const rendered = [];
+  globalThis.foundry = {
+    applications: { handlebars: { renderTemplate: async (path, data) => { rendered.push({ path, data }); return "<p>result</p>"; } } }
+  };
+  const service = new SourceItemResolutionService({
+    catalog: { randomItems: async () => [{ uuid: "a", name: "A", rarity: "common" }] },
+    commit: async resolved => resolved,
+    getLocation: id => ({ id, name: id === "neverwinter" ? "Neverwinter" : "City" })
+  });
+  const found = createSourceItemProject({ ...input, locationId: "neverwinter" }, { idFactory: () => "source", now: () => 1 });
+  await service.applyRoll(found, { naturalRoll: 18, skillModifier: 4 });
+  const successCard = rendered.find(entry => String(entry.path).endsWith("source-item-result.hbs"));
+  assert.equal(successCard.data.success, true);
+  assert.equal(successCard.data.collectionMessage, "The item must be picked up at Neverwinter.");
+
+  rendered.length = 0;
+  const unassigned = createSourceItemProject(input, { idFactory: () => "source", now: () => 1 });
+  unassigned.locationId = null;
+  await service.applyRoll(unassigned, { naturalRoll: 18, skillModifier: 4 });
+  const blankCard = rendered.find(entry => String(entry.path).endsWith("source-item-result.hbs"));
+  assert.equal(blankCard.data.success, true);
+  assert.equal(blankCard.data.collectionMessage, "No location is assigned.");
+  assert.equal(String(blankCard.data.collectionMessage).includes("picked up"), false);
+
+  rendered.length = 0;
+  const missed = createSourceItemProject({ ...input, locationId: "neverwinter" }, { idFactory: () => "source", now: () => 1 });
+  await service.applyRoll(missed, { naturalRoll: 1, skillModifier: 0 });
+  const failedCard = rendered.find(entry => String(entry.path).endsWith("source-item-result.hbs"));
+  assert.equal(failedCard.data.success, false);
+  assert.equal(failedCard.data.collectionMessage, null);
+  for (const [key, value] of Object.entries(previous)) {
+    if (value === undefined) delete globalThis[key];
+    else globalThis[key] = value;
+  }
+});

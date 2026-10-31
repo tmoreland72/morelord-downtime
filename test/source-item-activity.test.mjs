@@ -5,6 +5,7 @@ import {
   createSourceItemProject,
   persuasionPriceAdjustment,
   resolveSourceItemProject,
+  sourceItemCollectionNotice,
   sourceItemPriceFormula,
   sourcingBonus
 } from "../scripts/activities/source-item/source-item-activity.mjs";
@@ -39,6 +40,16 @@ test("successful sourcing reveals the hidden check and target price", async () =
   assert.equal(resolved.metadata.sourceItem.outcome.success, true);
   assert.equal(resolved.metadata.sourceItem.outcome.total, 23);
   assert.equal(resolved.metadata.sourceItem.outcome.targetPriceGp, 9500);
+});
+
+test("a successful Source Item result names the pickup location", () => {
+  const named = sourceItemCollectionNotice({ locationId: "neverwinter", locationName: "Neverwinter" });
+  assert.equal(named.assigned, true);
+  assert.equal(named.message, "The item must be picked up at Neverwinter.");
+  const missing = sourceItemCollectionNotice({ locationId: null, locationName: "Neverwinter" });
+  assert.equal(missing.assigned, false);
+  assert.equal(missing.message, "No location is assigned.");
+  assert.equal(missing.message.includes("picked up"), false);
 });
 
 test("failed sourcing requests Marketplace alternatives and prices each offer", async () => {

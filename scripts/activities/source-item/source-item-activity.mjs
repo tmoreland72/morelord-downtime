@@ -41,6 +41,14 @@ export function formatPriceAdjustment(adjustment) {
   return percent > 0 ? `+${percent}%` : `${percent}%`;
 }
 
+/** Successful finds name the Project location. A blank location says so and does not ask for a pickup. */
+export function sourceItemCollectionNotice({ locationId = null, locationName = null } = {}) {
+  const assigned = String(locationId ?? "").trim();
+  if (!assigned) return { assigned: false, message: "No location is assigned." };
+  const name = String(locationName ?? "").trim() || assigned;
+  return { assigned: true, message: `The item must be picked up at ${name}.` };
+}
+
 export function sourceItemPriceFormula(rarity) {
   return ({
     common: "(1d6 + 1) * 10",

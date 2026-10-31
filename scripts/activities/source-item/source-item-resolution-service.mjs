@@ -1,12 +1,13 @@
-import { applySourceItemPersuasion, formatPriceAdjustment, resolveSourceItemProject, sourceItemPriceFormula } from "./source-item-activity.mjs";
+import { applySourceItemPersuasion, formatPriceAdjustment, resolveSourceItemProject, sourceItemCollectionNotice, sourceItemPriceFormula } from "./source-item-activity.mjs";
 import { sourceItemPersuasionCard, sourceItemRollCard } from "./source-item-roll-request.mjs";
 import { completeChatRoll } from "../../../../morelord-core/scripts/services/chat-roll-requests.js";
 
 export class SourceItemResolutionService {
-  constructor({ catalog, getRequests = () => null, commit = async project => project }) {
+  constructor({ catalog, getRequests = () => null, commit = async project => project, getLocation = () => null }) {
     this.catalog = catalog;
     this.getRequests = getRequests;
     this.commit = commit;
+    this.getLocation = getLocation;
   }
 
   /** Post Core's roll request instead of rolling the skill check for the player. */
@@ -66,6 +67,12 @@ export class SourceItemResolutionService {
     return saved;
   }
 
+  #collectionNotice(project) {
+    const locationId = project.locationId;
+    const location = locationId ? this.getLocation(locationId) : null;
+    return sourceItemCollectionNotice({ locationId, locationName: location?.name });
+  }
+
   async #rollPrice(rarity) {
     const formula = sourceItemPriceFormula(rarity);
     if (!formula) throw new Error(`No Source Item price formula exists for '${rarity}'.`);
@@ -79,10 +86,12 @@ export class SourceItemResolutionService {
     const items = sourceItem.outcome.success
       ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
       : sourceItem.outcome.alternatives;
+    const success = sourceItem.outcome.success === true;
     const content = await foundry.applications.handlebars.renderTemplate("modules/morelord-downtime/templates/chat/source-item-result.hbs", {
       projectName: project.name,
       ownerName: project.owner.name ?? "Character",
-      success: sourceItem.outcome.success,
+      success,
+      collectionMessage: success ? this.#collectionNotice(project).message : null,
       total: sourceItem.outcome.total,
       dc: sourceItem.dc,
       items: items.map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }))

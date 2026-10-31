@@ -4,7 +4,7 @@ import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { titleCase } from "../ui/formatting.mjs";
 import { getModuleApi } from "../integrations/core-api.mjs";
 import { formatHistory } from "../ui/history.mjs";
-import { PERSUASION_PRICE_TIERS, SOURCE_ITEM_ACTIVITY_ID, formatPriceAdjustment } from "../activities/source-item/source-item-activity.mjs";
+import { PERSUASION_PRICE_TIERS, SOURCE_ITEM_ACTIVITY_ID, formatPriceAdjustment, sourceItemCollectionNotice } from "../activities/source-item/source-item-activity.mjs";
 
 class DetailApplication extends LiveDowntimeApplication {}
 
@@ -165,6 +165,12 @@ export class ProjectDetailApp extends DetailApplication {
           alternatives: (sourceItem.outcome?.alternatives ?? []).map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` })),
           persuasionLabel: sourceItem.persuasion ? `${sourceItem.persuasion.total} vs DC ${sourceItem.persuasion.dc ?? sourceItem.dc}: ${sourceItem.persuasion.tierLabel} (${formatPriceAdjustment(sourceItem.persuasion.adjustment)})` : null,
           persuasionTiers: PERSUASION_PRICE_TIERS.map(tier => ({ label: tier.label, adjustmentLabel: formatPriceAdjustment(tier.adjustment) })),
+          collectionNotice: sourceItem.outcome?.success
+            ? sourceItemCollectionNotice({
+              locationId: project.locationId,
+              locationName: locations.find(location => location.id === project.locationId)?.name
+            })
+            : null,
           canNegotiate: Boolean(sourceItem.outcome && !sourceItem.persuasion && !sourceItem.pendingPersuasion && canManage)
         } : null,
         canLogSourcing: Boolean(sourcingSession && !sourceItem?.outcome),
