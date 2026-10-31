@@ -415,9 +415,12 @@ export class NewProjectApp extends DowntimeApplication {
     };
   }
 
-  static explain(event) {
+  static explain(event, target) {
     event.preventDefault();
-    return openProjectTypeGuide();
+    const activityId = target?.dataset?.activityId;
+    const opened = openProjectTypeGuide(activityId);
+    if (!opened) ui.notifications.warn("This project type has no explanation.");
+    return opened;
   }
 
   static async choose(event, target) {

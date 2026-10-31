@@ -2,12 +2,11 @@
   <header class="ml-hero">
     <i class="fa-solid fa-folder-plus ml-hero__icon"></i>
     <div class="ml-hero__body"><h1>New Project</h1><p>Choose the kind of long-term activity this Project will track.</p></div>
-    <div class="ml-hero__actions"><button type="button" class="ml-help-button" data-action="explain" aria-label="Explain project types"><i class="fa-regular fa-circle-question" aria-hidden="true"></i></button></div>
   </header>
   <div class="ml-grid ml-downtime-activity-cards" data-columns="2">
     {{#each activityTypes}}<article class="ml-card ml-stack ml-downtime-activity-card" data-gap="2">
       <i class="{{icon}} ml-hero__icon"></i>
-      <div><h2>{{name}}</h2><p>{{description}}</p></div>
+      <div><h2 class="ml-field-label">{{name}}<button type="button" class="ml-help-button" data-action="explain" data-activity-id="{{id}}" aria-label="About {{name}}"><i class="fa-regular fa-circle-question" aria-hidden="true"></i></button></h2><p>{{description}}</p></div>
       <button class="ml-downtime-activity-card__action" type="button" data-action="choose" data-activity-id="{{id}}"><i class="{{actionIcon}}"></i> {{actionLabel}}</button>
     </article>{{/each}}
   </div>

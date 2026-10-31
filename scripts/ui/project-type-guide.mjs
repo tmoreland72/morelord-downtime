@@ -124,11 +124,23 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
 
+export function projectTypeEntry(id) {
+  return projectTypeEntries().find(entry => entry.id === id) ?? null;
+}
+
 export function projectTypeGuideShell(entries = projectTypeEntries()) {
-  const sections = entries.map(item => `<section class="ml-stack" data-gap="2"><h2>${escapeHtml(item.name)}</h2><dl class="ml-data-list">${
-    item.fields.map(field => `<div><dt>${escapeHtml(field.label)}</dt><dd>${escapeHtml(field.text)}</dd></div>`).join("")
-  }</dl></section>`).join("");
-  return `<div class="ml-app ml-app-shell ml-dialog-shell ml-stack" data-gap="4"><header class="ml-hero"><i class="fa-regular fa-circle-question ml-hero__icon" aria-hidden="true"></i><div class="ml-hero__body"><h1>Project Types</h1><p>What each New Project choice does, what it costs, and when it advances.</p></div></header>${sections}</div>`;
+  const single = entries.length === 1 ? entries[0] : null;
+  const sections = entries.map(item => {
+    const heading = single ? "" : `<h2>${escapeHtml(item.name)}</h2>`;
+    return `<section class="ml-stack" data-gap="2">${heading}<dl class="ml-data-list">${
+      item.fields.map(field => `<div><dt>${escapeHtml(field.label)}</dt><dd>${escapeHtml(field.text)}</dd></div>`).join("")
+    }</dl></section>`;
+  }).join("");
+  const title = single ? single.name : "Project Types";
+  const intro = single
+    ? "What this project does, what it costs, and when it advances."
+    : "What each New Project choice does, what it costs, and when it advances.";
+  return `<div class="ml-app ml-app-shell ml-dialog-shell ml-stack" data-gap="4"><header class="ml-hero"><i class="fa-regular fa-circle-question ml-hero__icon" aria-hidden="true"></i><div class="ml-hero__body"><h1>${escapeHtml(title)}</h1><p>${intro}</p></div></header>${sections}</div>`;
 }
 
 /** DialogV2 content. The outer element has no attributes. */
@@ -136,14 +148,16 @@ export function projectTypeDialogContent(entries = projectTypeEntries()) {
   return `<div>${projectTypeGuideShell(entries)}</div>`;
 }
 
-export function openProjectTypeGuide() {
+export function openProjectTypeGuide(activityId) {
+  const entry = projectTypeEntry(activityId);
+  if (!entry) return null;
   return foundry.applications.api.DialogV2.wait({
-    id: "morelord-downtime-project-types",
+    id: `morelord-downtime-project-type-${entry.id}`,
     classes: ["ml-window", "ml-downtime-module"],
-    window: { title: "Project Types", icon: "fa-regular fa-circle-question", resizable: true },
+    window: { title: entry.name, icon: "fa-regular fa-circle-question", resizable: true },
     position: { width: 720, height: 640 },
     rejectClose: false,
-    content: projectTypeDialogContent(),
+    content: projectTypeDialogContent([entry]),
     buttons: [{ action: "close", label: "Close", default: true }]
   });
 }
