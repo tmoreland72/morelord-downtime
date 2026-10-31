@@ -61,6 +61,25 @@ export function allocateSegmentHours(source, { projectId, participantActorUuids,
   return { segment, allocation };
 }
 
+/** Give back the session hours recorded against one Project. A second call is a no-op. */
+export function releaseProjectHours(source, projectId) {
+  const segment = clone(source);
+  const target = String(projectId);
+  const kept = [];
+  for (const allocation of segment.allocations) {
+    if (String(allocation.projectId) !== target) {
+      kept.push(allocation);
+      continue;
+    }
+    for (const actorUuid of allocation.participantActorUuids ?? []) {
+      const participant = segment.participants.find(entry => entry.actorUuid === actorUuid);
+      if (participant) participant.allocatedHours = Math.max(0, hours(participant.allocatedHours) - hours(allocation.hours));
+    }
+  }
+  segment.allocations = kept;
+  return segment;
+}
+
 /** Record time a character has already spent. Crafting can exceed the plan because the time is already gone. */
 export function recordSpentHours(source, { actorUuid, hours: requestedHours, projectId, at = Date.now(), sourceName = "craftworks", recipeId = null, recipeName = null } = {}) {
   const segment = clone(source);

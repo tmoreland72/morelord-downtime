@@ -1,4 +1,12 @@
 import { advanceElapsedDay, appendHistory, applyEffort, createProject } from "../domain/project.mjs";
+import { releaseProjectHours } from "../domain/segment.mjs";
+
+function releaseTrainingHours(state, projectId) {
+  for (const segment of Object.values(state.segments ?? {})) {
+    const released = releaseProjectHours(segment, projectId);
+    state.segments[segment.id] = released;
+  }
+}
 
 export class ProjectService {
   constructor({ repository, activityRegistry = null, idFactory = null, now = () => Date.now() }) {
@@ -86,6 +94,7 @@ export class ProjectService {
       || Object.values(state.segments).some(segment => segment.allocations.some(allocation => allocation.projectId === project.id))
       || project.history.some(entry => !["created", "updated", "cancelled"].includes(entry.type));
     if (hasProgress && !(allowCancelled && project.status === "cancelled")) throw new Error("A Project with recorded progress must be cancelled before it can be deleted.");
+    if (project.activityType === "training") releaseTrainingHours(state, project.id);
     delete state.projects[project.id];
     for (const session of Object.values(state.sessions)) {
       session.plannedProjectIds = (session.plannedProjectIds ?? []).filter(projectId => projectId !== project.id);
@@ -100,6 +109,7 @@ export class ProjectService {
     const project = state.projects[String(id)];
     if (!project) throw new Error("Project not found.");
     if (["completed", "awaiting-collection", "cancelled", "failed"].includes(project.status)) throw new Error("Project cannot be cancelled in its current status.");
+    if (project.activityType === "training") releaseTrainingHours(state, project.id);
     project.status = "cancelled";
     appendHistory(project, "cancelled", { reason: reason ? String(reason) : null }, this.now());
     state.projects[project.id] = project;

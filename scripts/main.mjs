@@ -16,7 +16,7 @@ import { downtimeStateSettingChanged, queueLiveWindowRefresh } from "./apps/live
 import { Dnd5eProficiencyAdapter } from "./adapters/dnd5e-proficiency-adapter.mjs";
 import { CraftworksProjectAdapter } from "./adapters/craftworks-project-adapter.mjs";
 import { registerCraftTimeTracking } from "./integrations/craft-time-tracking.mjs";
-import { CraftTimeService } from "./services/craft-time-service.mjs";
+import { CraftTimeService, craftingProjectsFromFlags } from "./services/craft-time-service.mjs";
 import { isPrimaryActiveGm } from "./services/primary-gm.mjs";
 import { sourcingTimeEntry } from "./activities/source-item/source-item-time.mjs";
 import { assertNpcInstructorSpecialty } from "./domain/instructor-specialty.mjs";
@@ -107,7 +107,14 @@ async function logSourcingTime(input = {}) {
 }
 
 function readCraftingProjects(actor) {
+  const fromFlags = craftingProjectsFromFlags(actor);
   const api = getModuleApi("morelord-craftworks", "MorelordCraftworks");
+  if (fromFlags) {
+    return fromFlags.map(project => {
+      const recipe = api?.recipes?.get?.(project.recipeId, { includeDisabled: true });
+      return { ...project, recipeName: recipe?.name ? String(recipe.name) : (project.recipeName ?? "a recipe") };
+    });
+  }
   if (!api?.craftingJobs?.list || !api.craftingJobs.getProgress) return null;
   return api.craftingJobs.list(actor, { activeOnly: false }).map(job => {
     const progress = api.craftingJobs.getProgress(job.recipeId, actor, job.inventoryActorUuid);

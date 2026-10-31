@@ -336,3 +336,28 @@ test("an actor update for Craftworks flags refreshes Downtime and reconciles tha
     globalThis.Hooks = previousHooks;
   }
 });
+
+test("a failed attempt and a successful craft both spend session time from saved Craftworks jobs", async () => {
+  const { repository, sessions, jobs, actor, service } = world();
+  const started = await startSession(sessions);
+  const flags = { "morelord-craftworks": { craftingJobs: {} } };
+  actor.flags = flags;
+  const writeJob = (recipeId, job) => {
+    flags["morelord-craftworks"].craftingJobs[recipeId] = { recipeId, hoursRequired: 8, outputAwarded: false, completedWithoutCheck: false, updatedAt: 1, ...job };
+  };
+  // Craftworks' cached API still reports the old total. The character flags are newer.
+  jobs.set(actor.uuid, [job("potion", 0), job("sword", 0)]);
+  await service.baseline();
+  writeJob("potion", { attempts: 1, successes: 0, updatedAt: 2 });
+  const failed = await service.reconcileActor(actor);
+  assert.equal(failed.hours, 2);
+  assert.equal((await repository.read()).segments[started.segment.id].participants[0].allocatedHours, 2);
+
+  writeJob("sword", { attempts: 1, successes: 1, outputAwarded: true, updatedAt: 3 });
+  const succeeded = await service.reconcileActor(actor);
+  assert.equal(succeeded.hours, 2);
+  const participant = (await repository.read()).segments[started.segment.id].participants[0];
+  assert.equal(participant.allocatedHours, 4);
+  assert.equal((await repository.read()).craftTimeLedger[actor.uuid].potion, 2);
+  assert.equal((await repository.read()).craftTimeLedger[actor.uuid].sword, 2);
+});

@@ -56,6 +56,21 @@ export function createTrainingProject(data = {}, options = {}) {
   }, options);
 }
 
+/** A player-character instructor spends the same session hours as the student. */
+export function characterInstructorUuid(project) {
+  const instructor = project?.metadata?.training?.instructor;
+  if (String(instructor?.mode ?? "") !== "participant") return null;
+  const actorUuid = String(instructor?.actorUuid ?? "").trim();
+  return actorUuid || null;
+}
+
+export function withCharacterInstructor(project, participantActorUuids = []) {
+  const actors = [...new Set((participantActorUuids ?? []).map(String).filter(Boolean))];
+  const instructorUuid = characterInstructorUuid(project);
+  if (instructorUuid && !actors.includes(instructorUuid)) actors.push(instructorUuid);
+  return actors;
+}
+
 export function canProgressTraining(project, { segment, participantActorUuids = [], location = null } = {}) {
   const training = project.metadata?.training;
   if (!training) return { passed: false, reasons: ["Training metadata is missing."] };

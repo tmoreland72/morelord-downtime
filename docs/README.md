@@ -71,7 +71,7 @@ On a Training Project, **Project Location (Optional)** includes **No fixed Locat
 
 When the Project has no location, allocating hours uses the Session's location. A Session that has a location applies that location's Instructor specialties to the NPC. A Session location with no **Instructor** capability has no NPC subjects.
 
-A character instructor teaches subjects that character already knows, must be a different character from the student, and spends the same hours as the student. The Instructor specialty list applies to an NPC instructor and to a provider instructor. A provider uses that provider's own Instructor specialties. When the provider has a location, the Session has to be at that location.
+A character instructor teaches subjects that character already knows, must be a different character from the student, and spends the same hours as the student. Those hours come out of both characters' Session time, including when a player allocates the time. The instructor's own remaining hours are the limit. Cancelling or deleting the training returns those hours to both characters. The Instructor specialty list applies to an NPC instructor and to a provider instructor. A provider uses that provider's own Instructor specialties. When the provider has a location, the Session has to be at that location.
 
 A Training Project that has a location receives Session hours only while the Session is at that location.
 
@@ -119,7 +119,7 @@ Research appears in New Project and Session activity choices only while the Drak
 
 ### Training
 
-Select the student, exact proficiency or weapon mastery, and instructor. **Select Training** follows Configure Sources, so the list is the skills, languages, tools, weapons, armor, and weapon masteries enabled for the world. That includes Xanathar's Guide to Everything and Tasha's Cauldron of Everything when those sources are enabled. See **Shared Locations** for NPC instructors, **Any**, a location with no Instructor capability, and **No fixed Location**. A character instructor must know the selected proficiency, must differ from the student, and contribute the same hours. Successful completion applies the proficiency to the student and records the outcome.
+Select the student, exact proficiency or weapon mastery, and instructor. **Select Training** follows Configure Sources, so the list is the skills, languages, tools, weapons, armor, and weapon masteries enabled for the world. That includes Xanathar's Guide to Everything and Tasha's Cauldron of Everything when those sources are enabled. See **Shared Locations** for NPC instructors, **Any**, a location with no Instructor capability, and **No fixed Location**. A character instructor must know the selected proficiency, must differ from the student, and spends the same Session hours. Those hours are taken from the instructor as well as the student. Cancelling or deleting the training returns them to both. Successful completion applies the proficiency to the student and records the outcome.
 
 Estimates appear after selecting the proficiency. Languages and tools use `(10 − positive Intelligence modifier) × 40` hours with a one-workweek floor. Other proficiencies and masteries use that baseline as a labeled GM-defined extension. The GM may adjust it, and existing saved durations are preserved.
 
@@ -149,7 +149,7 @@ Use **Advance Day** in GM Operations to advance elapsed activities. Journeys can
 
 ## Cancel or delete a Project
 
-The GM or owning player can cancel or delete from the dashboard, details, or activity editor. Cancellation stops progress and retains the Project under **Show Completed**. Unused Projects can be deleted immediately; cancel Projects with progress before deleting them. Deletion permanently removes the Project and its history and clears planned Session links, while Session allocation records remain. Neither action refunds time or gold. Crafting Projects remain managed in Craftworks.
+The GM or owning player can cancel or delete from the dashboard, details, or activity editor. Cancellation stops progress and retains the Project under **Show Completed**. Unused Projects can be deleted immediately; cancel Projects with progress before deleting them. Deletion permanently removes the Project and its history and clears planned Session links. Cancelling or deleting a Training Project returns the Session hours that training used to the student and the instructor. Other Projects keep their Session allocation records, and neither action refunds gold. Crafting Projects remain managed in Craftworks.
 
 Project and Session details show history newest first, with timestamps and readable descriptions of contributions, progress, outcomes, and changes. Linked characters, Projects, time pools, and Locations use their names when available; deleted references are marked unavailable. Existing saved history is displayed this way automatically, without rewriting records.
 

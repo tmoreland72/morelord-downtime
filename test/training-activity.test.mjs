@@ -186,6 +186,61 @@ test("direct Project effort completion runs the training award lifecycle", async
   assert.equal(updates[0]["system.tools.smith.value"], 1);
 });
 
+test("a player training allocation spends the instructor's session hours too", async () => {
+  const { projects, segments } = trainingHarness();
+  const project = await projects.create(createTrainingProject({
+    kind: "language", proficiencyId: "dwarvish", requiredHours: 10,
+    owner: { uuid: "Actor.aric" },
+    instructor: { mode: "participant", actorUuid: "Actor.brom" }
+  }, { idFactory: () => "paired-training", now: () => 1 }));
+  const segment = await segments.create({
+    name: "Week", status: "open",
+    participants: [
+      { actorUuid: "Actor.aric", name: "Aric", availableHours: 8 },
+      { actorUuid: "Actor.brom", name: "Brom", availableHours: 8 }
+    ]
+  });
+  const allocated = await segments.allocate({
+    segmentId: segment.id, projectId: project.id, participantActorUuids: ["Actor.aric"], hours: 2
+  });
+  assert.deepEqual(allocated.allocation.participantActorUuids, ["Actor.aric", "Actor.brom"]);
+  assert.equal(allocated.segment.participants.find(entry => entry.actorUuid === "Actor.aric").allocatedHours, 2);
+  assert.equal(allocated.segment.participants.find(entry => entry.actorUuid === "Actor.brom").allocatedHours, 2);
+  const changed = await segments.allocate({
+    segmentId: segment.id, projectId: project.id, participantActorUuids: ["Actor.aric"], hours: 1
+  });
+  assert.equal(changed.segment.participants.find(entry => entry.actorUuid === "Actor.aric").allocatedHours, 3);
+  assert.equal(changed.segment.participants.find(entry => entry.actorUuid === "Actor.brom").allocatedHours, 3);
+  await projects.cancel(project.id);
+  const released = await segments.get(segment.id);
+  assert.equal(released.participants.find(entry => entry.actorUuid === "Actor.aric").allocatedHours, 0);
+  assert.equal(released.participants.find(entry => entry.actorUuid === "Actor.brom").allocatedHours, 0);
+  assert.equal(released.allocations.length, 0);
+});
+
+test("training is blocked when the instructor does not have enough session time", async () => {
+  const { projects, segments } = trainingHarness();
+  const project = await projects.create(createTrainingProject({
+    kind: "language", proficiencyId: "dwarvish", requiredHours: 10,
+    owner: { uuid: "Actor.aric" },
+    instructor: { mode: "participant", actorUuid: "Actor.brom" }
+  }, { idFactory: () => "short-instructor", now: () => 1 }));
+  const segment = await segments.create({
+    name: "Week", status: "open",
+    participants: [
+      { actorUuid: "Actor.aric", name: "Aric", availableHours: 8 },
+      { actorUuid: "Actor.brom", name: "Brom", availableHours: 1 }
+    ]
+  });
+  await assert.rejects(
+    () => segments.allocate({ segmentId: segment.id, projectId: project.id, participantActorUuids: ["Actor.aric"], hours: 2 }),
+    /Brom does not have enough remaining downtime hours/
+  );
+  const unchanged = await segments.get(segment.id);
+  assert.equal(unchanged.participants.every(entry => entry.allocatedHours === 0), true);
+  assert.equal((await projects.get(project.id)).progress.effort.completedHours, 0);
+});
+
 test("weapon proficiency and weapon mastery awards target specific D&D5e weapon traits", async () => {
   const updates = [];
   const actor = {

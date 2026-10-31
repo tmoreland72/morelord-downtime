@@ -4,6 +4,42 @@ import { recordSpentHours, remainingHours } from "../domain/segment.mjs";
 const integrationReady = integration => typeof integration?.listProjects === "function"
   && typeof integration?.getProject === "function";
 
+const CRAFTWORKS_FLAG_SCOPE = "morelord-craftworks";
+const CRAFTWORKS_JOBS_FLAG = "craftingJobs";
+/** Matches Craftworks' crafting check interval. Each attempt, success or failure, spends this many hours. */
+const CRAFT_CHECK_HOURS = 2;
+
+/**
+ * Hours already spent, read from the character document.
+ * Craftworks' in-memory job cache can lag a player craft, so the saved flags are the source of truth.
+ * Returns null when the character has no crafting-jobs flag yet.
+ */
+export function craftingProjectsFromFlags(actor) {
+  const jobs = actor?.flags?.[CRAFTWORKS_FLAG_SCOPE]?.[CRAFTWORKS_JOBS_FLAG];
+  if (!jobs || typeof jobs !== "object" || Array.isArray(jobs)) return null;
+  const byRecipe = new Map();
+  for (const [key, job] of Object.entries(jobs)) {
+    if (!job || typeof job !== "object") continue;
+    const recipeId = String(job.recipeId ?? String(key).split("::")[0] ?? "").trim();
+    if (!recipeId) continue;
+    const attempts = Math.max(0, Number(job.attempts ?? 0));
+    const completedWithoutCheck = job.completedWithoutCheck === true;
+    const hoursRequired = Math.max(0, Number(job.hoursRequired ?? 0));
+    const timeSpentHours = completedWithoutCheck ? hoursRequired : attempts * CRAFT_CHECK_HOURS;
+    const updatedAt = Number(job.updatedAt ?? 0);
+    const current = byRecipe.get(recipeId);
+    if (current && current.updatedAt > updatedAt) continue;
+    byRecipe.set(recipeId, {
+      recipeId,
+      timeSpentHours: Number.isFinite(timeSpentHours) ? Math.max(0, timeSpentHours) : 0,
+      recipeName: job.recipeName ? String(job.recipeName) : null,
+      outputAwarded: job.outputAwarded === true,
+      updatedAt
+    });
+  }
+  return [...byRecipe.values()];
+}
+
 function sameLedger(left = {}, right = {}) {
   const leftKeys = Object.keys(left).sort();
   const rightKeys = Object.keys(right).sort();
@@ -195,6 +231,8 @@ export class CraftTimeService {
   }
 
   async #projectsFor(actor, integration, preset) {
+    const fromFlags = craftingProjectsFromFlags(actor);
+    if (fromFlags) return fromFlags;
     if (Array.isArray(preset)) {
       return preset.map(project => ({
         recipeId: String(project?.recipeId ?? ""),
@@ -260,7 +298,11 @@ export class CraftTimeService {
       // when Downtime starts during an active Session. Awarded jobs are remembered
       // without charging this Session for work finished earlier.
       if (previous == null) {
-        if (timeSpentHours > 0 && project.outputAwarded !== true) delta = timeSpentHours;
+        // Historical finished work is not charged when tracking starts. A craft that
+        // finishes during an active Session still counts, including when the output
+        // is awarded in the same update as the successful check.
+        const finishedEarlier = project.outputAwarded === true && chargeNew !== true;
+        if (timeSpentHours > 0 && !finishedEarlier) delta = timeSpentHours;
       } else if (timeSpentHours > previous) delta = timeSpentHours - previous;
       if (delta > 0) {
         charges.push({

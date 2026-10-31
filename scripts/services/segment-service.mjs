@@ -1,5 +1,6 @@
 import { applyEffort } from "../domain/project.mjs";
-import { allocateSegmentHours, createSegment } from "../domain/segment.mjs";
+import { allocateSegmentHours, createSegment, remainingHours } from "../domain/segment.mjs";
+import { withCharacterInstructor } from "../activities/training/training-activity.mjs";
 
 export class SegmentService {
   constructor({ repository, activityRegistry, requirementEvaluator = null, getLocation = null, idFactory = null, now = () => Date.now() }) {
@@ -100,10 +101,22 @@ export class SegmentService {
     const segment = state.segments[String(segmentId)];
     const project = state.projects[String(projectId)];
     const session = segment?.metadata?.sessionId ? state.sessions[String(segment.metadata.sessionId)] : null;
-    const eligibility = await this.evaluateAllocation({ segment, project, session, participantActorUuids, hours });
+    const actors = withCharacterInstructor(project, participantActorUuids);
+    const instructorUuid = project?.metadata?.training?.instructor?.mode === "participant"
+      ? String(project.metadata.training.instructor.actorUuid ?? "").trim()
+      : "";
+    if (instructorUuid && segment) {
+      const instructor = segment.participants.find(entry => entry.actorUuid === instructorUuid);
+      const name = instructor?.name || "The instructor";
+      if (!instructor) throw new Error(`${name} is not part of this Downtime Session, so the same training hours cannot be spent.`);
+      if (remainingHours(instructor) < Math.max(0, Number(hours ?? 0))) {
+        throw new Error(`${name} does not have enough remaining downtime hours. Training spends the same hours for the student and the instructor.`);
+      }
+    }
+    const eligibility = await this.evaluateAllocation({ segment, project, session, participantActorUuids: actors, hours });
     if (!eligibility.passed) throw new Error(eligibility.reasons.join(" "));
     const { segment: updatedSegment, allocation } = allocateSegmentHours(segment, {
-      projectId, participantActorUuids, hours, at: this.now()
+      projectId, participantActorUuids: actors, hours, at: this.now()
     });
     // Collaborative work consumes the same duration from every participant,
     // but advances the shared Project only once.

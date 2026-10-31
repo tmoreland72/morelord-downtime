@@ -70,7 +70,7 @@ Players see the Session location, or **No Location**. Sessions stay read-only fo
 
 ## Cancelling and deleting Projects
 
-GMs and a Project owner's players can use **Cancel Project** and **Delete Project** from the dashboard, Project details, or the Training, Commission, and Source Item editors. Cancellation stops further progress and retains the Project under **Show Completed**. Unused Projects can be deleted immediately; Projects with recorded progress must be cancelled first. Deletion permanently removes the Project and its history and clears planned Session links, but retains Session allocation records. Neither action refunds spent time or gold. Crafting Projects remain managed in Craftworks. Cancelling a craft there does not refund Downtime Session time already recorded for that work.
+GMs and a Project owner's players can use **Cancel Project** and **Delete Project** from the dashboard, Project details, or the Training, Commission, and Source Item editors. Cancellation stops further progress and retains the Project under **Show Completed**. Unused Projects can be deleted immediately; Projects with recorded progress must be cancelled first. Deletion permanently removes the Project and its history and clears planned Session links. Cancelling or deleting a Training Project returns the Session hours that training used to the student and the instructor. Other Projects keep their Session allocation records, and neither action refunds gold. Crafting Projects remain managed in Craftworks. Cancelling a craft there does not refund Downtime Session time already recorded for that work.
 
 ## Development standards
 
