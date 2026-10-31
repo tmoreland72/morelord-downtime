@@ -4,6 +4,7 @@ import { ProjectRepository } from "../scripts/persistence/project-repository.mjs
 import { ProjectService } from "../scripts/services/project-service.mjs";
 import { SessionService } from "../scripts/services/session-service.mjs";
 import { buildXgeProject } from "../scripts/activities/xge/xge-project.mjs";
+import { ACTIVE_PRESENCE_TOOLTIP, INACTIVE_PRESENCE_TOOLTIP, presenceMarker } from "../scripts/domain/presence-focus.mjs";
 
 const owner = { uuid: "Actor.aric", name: "Aric" };
 const other = { uuid: "Actor.brom", name: "Brom" };
@@ -112,4 +113,31 @@ test("another character's presence project stays Active on its own", async () =>
   await projects.advanceDay({ idempotencyKey: "both" });
   assert.equal((await projects.get("aric")).progress.elapsed.completedDays, 1);
   assert.equal((await projects.get("brom")).progress.elapsed.completedDays, 1);
+});
+
+test("the presence marker is a dot the owner or GM can click, and other projects have none", () => {
+  const active = project("carousing", "active");
+  active.presenceFocus = true;
+  const inactive = project("crime", "idle");
+  inactive.presenceFocus = false;
+  const away = project("relaxation", "rest");
+  assert.deepEqual(presenceMarker(active, { canToggle: true }), {
+    presenceTracked: true,
+    presenceFocus: true,
+    presenceState: "active",
+    canTogglePresence: false,
+    presenceTooltip: ACTIVE_PRESENCE_TOOLTIP
+  });
+  assert.equal(ACTIVE_PRESENCE_TOOLTIP, "Active: gets credit on Advance Day");
+  assert.deepEqual(presenceMarker(inactive, { canToggle: true }), {
+    presenceTracked: true,
+    presenceFocus: false,
+    presenceState: "inactive",
+    canTogglePresence: true,
+    presenceTooltip: INACTIVE_PRESENCE_TOOLTIP
+  });
+  assert.equal(INACTIVE_PRESENCE_TOOLTIP, "Click to make Active");
+  assert.equal(presenceMarker(inactive, { canToggle: false }).presenceTooltip, "Inactive");
+  assert.equal(presenceMarker(inactive, { canToggle: false }).canTogglePresence, false);
+  assert.equal(presenceMarker(away, { canToggle: true }).presenceTracked, false);
 });

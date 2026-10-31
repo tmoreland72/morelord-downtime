@@ -80,6 +80,24 @@ export function normalizePresenceFocus(projects, { now = Date.now() } = {}) {
   return changed;
 }
 
+export const ACTIVE_PRESENCE_TOOLTIP = "Active: gets credit on Advance Day";
+export const INACTIVE_PRESENCE_TOOLTIP = "Click to make Active";
+
+/** Fields for the presence dot. Non-presence projects get no dot. */
+export function presenceMarker(project, { canToggle = false } = {}) {
+  if (!isPresenceProject(project)) {
+    return { presenceTracked: false, presenceFocus: false, canTogglePresence: false, presenceTooltip: "" };
+  }
+  const active = project.presenceFocus === true;
+  return {
+    presenceTracked: true,
+    presenceFocus: active,
+    presenceState: active ? "active" : "inactive",
+    canTogglePresence: Boolean(canToggle) && !active,
+    presenceTooltip: active ? ACTIVE_PRESENCE_TOOLTIP : (canToggle ? INACTIVE_PRESENCE_TOOLTIP : "Inactive")
+  };
+}
+
 export function activatePresenceFocus(projects, projectId, now = Date.now()) {
   const target = projects?.[String(projectId)];
   if (!isPresenceProject(target)) throw new Error("Only a presence project in progress can be Active.");

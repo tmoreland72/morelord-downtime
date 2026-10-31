@@ -7,7 +7,7 @@ import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { craftingPlaceLabel, craftingPlaces } from "../domain/crafting-places.mjs";
 import { getCoreApi } from "../integrations/core-api.mjs";
 import { titleCase } from "../ui/formatting.mjs";
-import { isPresenceProject } from "../domain/presence-focus.mjs";
+import { presenceMarker } from "../domain/presence-focus.mjs";
 
 function requireSessionGm() {
   if (globalThis.game?.user && game.user.isGM !== true) {
@@ -158,10 +158,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
           && (isGm || ownsActor(project.owner.uuid)),
         canCancelProject: !["completed", "awaiting-collection", "cancelled", "failed"].includes(project.status) && (isGm || ownsActor(project.owner.uuid)),
         canDeleteProject: (project.status === "cancelled" || projectIsUnused(project)) && (isGm || ownsActor(project.owner.uuid)),
-        presenceTracked: isPresenceProject(project),
-        presenceFocus: project.presenceFocus === true,
-        presenceLabel: project.presenceFocus === true ? "Active" : "Inactive",
-        canSetPresenceFocus: isPresenceProject(project) && project.presenceFocus !== true && (isGm || ownsActor(project.owner.uuid)),
+        ...presenceMarker(project, { canToggle: isGm || ownsActor(project.owner.uuid) }),
         canCollectProject: project.activityType === "commission" && project.status === "awaiting-collection" && (isGm || ownsActor(project.owner.uuid)),
         isClosed: ["completed", "cancelled", "failed"].includes(project.status)
           || (project.status === "awaiting-collection" && project.activityType !== "commission")
@@ -260,6 +257,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
 
   static async setPresenceFocus(event, target) {
     event.preventDefault();
+    event.stopPropagation?.();
     const projectId = target.closest("[data-project-id]")?.dataset.projectId;
     target.disabled = true;
     try {

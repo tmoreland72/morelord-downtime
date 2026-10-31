@@ -127,6 +127,50 @@ export function sessionJournal({ session, segments = [], projects = {}, activity
   }));
 }
 
+/** Spent and allotted time for each character in one Session. */
+export function sessionParticipantTime({ session, segments = [] } = {}) {
+  const byId = segmentMap(segments);
+  const pieces = (session?.segmentIds ?? []).map(id => byId.get(id)).filter(Boolean);
+  const daysSet = session?.days != null && session.days !== "" && Number.isFinite(Number(session.days));
+  const allottedDays = daysSet ? Number(session.days) : null;
+  const allottedHours = Number(session?.plannedDurationHours ?? 0);
+  return (session?.participants ?? []).map(person => {
+    const actorUuid = person.actorUuid;
+    let spentHours = 0;
+    let spentDays = 0;
+    for (const segment of pieces) {
+      const participant = (segment.participants ?? []).find(entry => entry.actorUuid === actorUuid);
+      if (participant) spentHours += Number(participant.allocatedHours) || 0;
+      for (const allocation of segment.allocations ?? []) {
+        if (!(allocation.participantActorUuids ?? []).includes(actorUuid)) continue;
+        const days = Number(allocation.days);
+        if (Number.isFinite(days) && days > 0) spentDays += days;
+      }
+    }
+    const name = person.name || "A participant";
+    const hoursLabel = `${formatAmount(spentHours)} / ${formatAmount(allottedHours)} hours`;
+    const daysLabel = daysSet ? `${formatAmount(spentDays)} / ${formatAmount(allottedDays)} days` : "";
+    return {
+      actorUuid,
+      name,
+      spentHours,
+      allottedHours,
+      spentDays,
+      allottedDays,
+      hoursLabel,
+      daysLabel,
+      timeLabel: daysLabel ? `${daysLabel} · ${hoursLabel}` : hoursLabel
+    };
+  });
+}
+
+function formatAmount(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "0";
+  const rounded = Math.round(number * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
 function segmentMap(segments) {
   return Array.isArray(segments)
     ? new Map(segments.map(segment => [segment.id, segment]))

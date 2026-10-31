@@ -1,4 +1,5 @@
 import { SESSION_STATUSES } from "../constants.mjs";
+import { XGE_ACTIVITY_IDS } from "../activities/xge/xge-rules.mjs";
 
 const clone = value => structuredClone(value);
 
@@ -55,6 +56,7 @@ export function createSession(raw = {}, { idFactory = () => crypto.randomUUID(),
     plannedDurationHours,
     participants,
     availableActivities: [...new Set((raw.availableActivities ?? []).map(String).filter(Boolean))],
+    activityCatalogSeeded: raw.activityCatalogSeeded === true,
     plannedProjectIds: [...new Set((raw.plannedProjectIds ?? []).map(String).filter(Boolean))],
     segmentIds: [...new Set((raw.segmentIds ?? []).map(String).filter(Boolean))],
     status,
@@ -64,6 +66,17 @@ export function createSession(raw = {}, { idFactory = () => crypto.randomUUID(),
     finalizedAt: raw.finalizedAt == null ? null : Number(raw.finalizedAt),
     history: clone(raw.history ?? [{ at: createdAt, type: "created", data: {} }])
   };
+}
+
+/** Sessions saved before the Xanathar activities existed gain those activities once. */
+export function seedSavedSessionActivities(session) {
+  if (!session || session.activityCatalogSeeded === true) return false;
+  if (!Array.isArray(session.availableActivities)) session.availableActivities = [];
+  for (const id of XGE_ACTIVITY_IDS) {
+    if (!session.availableActivities.includes(id)) session.availableActivities.push(id);
+  }
+  session.activityCatalogSeeded = true;
+  return true;
 }
 
 export function transitionSession(source, status, at = Date.now()) {

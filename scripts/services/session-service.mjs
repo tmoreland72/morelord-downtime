@@ -20,7 +20,7 @@ export class SessionService {
   async create(raw) {
     this.#requireGm();
     const state = await this.repository.read();
-    const session = createSession(raw, { idFactory: this.idFactory ?? (() => foundry.utils.randomID()), now: this.now });
+    const session = createSession({ ...raw, activityCatalogSeeded: true }, { idFactory: this.idFactory ?? (() => foundry.utils.randomID()), now: this.now });
     state.sessions[session.id] = session;
     await this.repository.write(state);
     return structuredClone(session);
@@ -60,6 +60,7 @@ export class SessionService {
       days: nextDays,
       daysUsed: existing.daysUsed ?? 0,
       plannedDurationHours: nextHours,
+      activityCatalogSeeded: true,
       createdAt: existing.createdAt,
       publishedAt: existing.publishedAt,
       history: existing.history

@@ -8,7 +8,8 @@ import { ProjectService } from "../scripts/services/project-service.mjs";
 import { createSourceItemProject } from "../scripts/activities/source-item/source-item-activity.mjs";
 import { createCommissionProject } from "../scripts/activities/commission/commission-activity.mjs";
 import { formatHistory } from "../scripts/ui/history.mjs";
-import { sessionJournal, sessionSpends } from "../scripts/ui/session-spends.mjs";
+import { sessionJournal, sessionParticipantTime, sessionSpends } from "../scripts/ui/session-spends.mjs";
+import { XGE_ACTIVITY_IDS } from "../scripts/activities/xge/xge-rules.mjs";
 
 function world() {
   let stored = null;
@@ -225,4 +226,108 @@ test("session history names commissioning and sourcing without internal ids", as
   assert.equal(rows[1].details, "Aric spent 8 hours commissioning Plate Armor.");
   assert.equal(rows[0].details, "Aric spent 8 hours sourcing Cloak of Protection.");
   assert.equal(rows.some(row => row.details.includes("project-1") || row.details.includes("Actor.aric")), false);
+});
+
+test("participant time counts instructor hours, crafting hours, and day-based days", () => {
+  const session = {
+    days: 4,
+    plannedDurationHours: 16,
+    participants: [
+      { actorUuid: "Actor.darro", name: "Darro" },
+      { actorUuid: "Actor.mira", name: "Mira" }
+    ],
+    segmentIds: ["segment-1"]
+  };
+  const segments = [{
+    id: "segment-1",
+    participants: [
+      { actorUuid: "Actor.darro", name: "Darro", availableHours: 16, allocatedHours: 12 },
+      { actorUuid: "Actor.mira", name: "Mira", availableHours: 16, allocatedHours: 4 }
+    ],
+    allocations: [
+      { id: "train", projectId: "train", participantActorUuids: ["Actor.darro", "Actor.mira"], hours: 4, days: null },
+      { id: "craft", projectId: "craft", participantActorUuids: ["Actor.darro"], hours: 8, days: null, source: "craftworks" },
+      { id: "present", projectId: "carouse", participantActorUuids: ["Actor.darro"], hours: 0, days: 1, source: "xge" },
+      { id: "source", projectId: "cloak", participantActorUuids: ["Actor.mira"], hours: 0, days: 1, activityId: "source-item" }
+    ]
+  }];
+  const rows = sessionParticipantTime({ session, segments });
+  assert.equal(rows[0].timeLabel, "1 / 4 days · 12 / 16 hours");
+  assert.equal(rows[1].timeLabel, "1 / 4 days · 4 / 16 hours");
+  const hoursOnly = sessionParticipantTime({ session: { ...session, days: null }, segments });
+  assert.equal(hoursOnly[0].timeLabel, "12 / 16 hours");
+  assert.equal(hoursOnly[0].daysLabel, "");
+});
+
+test("a session saved before the Xanathar activities gains them once, and a later edit can turn one off", async () => {
+  let stored = {
+    schemaVersion: 1,
+    projects: {},
+    segments: {},
+    sessions: {
+      old: {
+        schemaVersion: 1,
+        id: "old",
+        name: "Town",
+        participants: [{ actorUuid: "Actor.aric", name: "Aric" }],
+        availableActivities: ["training", "source-item", "crafting"],
+        plannedDurationHours: 16,
+        status: "active",
+        days: 4,
+        daysUsed: 1,
+        segmentIds: [],
+        plannedProjectIds: [],
+        history: [{ at: 1, type: "created", data: {} }],
+        createdAt: 1
+      }
+    },
+    consumedDayKeys: []
+  };
+  const repository = new ProjectRepository({
+    getState: async () => stored,
+    setState: async value => { stored = structuredClone(value); }
+  });
+  const sessions = new SessionService({ repository, idFactory: () => "later", segmentIdFactory: () => "segment-9", now: () => 5 });
+  const seeded = await repository.read();
+  for (const id of XGE_ACTIVITY_IDS) assert.equal(seeded.sessions.old.availableActivities.includes(id), true);
+  assert.equal(seeded.sessions.old.availableActivities.includes("training"), true);
+  stored = structuredClone(seeded);
+  const edited = await sessions.update("old", {
+    availableActivities: seeded.sessions.old.availableActivities.filter(id => id !== "crime")
+  });
+  assert.equal(edited.availableActivities.includes("crime"), false);
+  assert.equal(edited.availableActivities.includes("carousing"), true);
+  assert.equal((await repository.read()).sessions.old.availableActivities.includes("crime"), false);
+  const created = await sessions.create({
+    name: "Later",
+    plannedDurationHours: 8,
+    participants: [{ actorUuid: "Actor.aric", name: "Aric" }],
+    availableActivities: ["training"]
+  });
+  assert.deepEqual(created.availableActivities, ["training"]);
+  assert.equal((await repository.read()).sessions[created.id].availableActivities.includes("carousing"), false);
+});
+
+test("presence dots, participant time, and the session label column are in the session views", () => {
+  const dashboard = readFileSync(new URL("../templates/downtime-dashboard.hbs", import.meta.url), "utf8");
+  const project = readFileSync(new URL("../templates/project-detail.hbs", import.meta.url), "utf8");
+  const session = readFileSync(new URL("../templates/session-detail.hbs", import.meta.url), "utf8");
+  const editor = readFileSync(new URL("../templates/create-session.hbs", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../styles/morelord-downtime.css", import.meta.url), "utf8");
+  const registration = readFileSync(new URL("../scripts/activities/xge/register-xge.mjs", import.meta.url), "utf8");
+  assert.match(dashboard, /class="ml-presence-dot"/);
+  assert.match(dashboard, /data-tooltip="\{\{presenceTooltip\}\}"/);
+  assert.match(dashboard, /class="ml-downtime-make-active"/);
+  assert.equal(dashboard.includes("ml-badge"), false);
+  assert.equal(dashboard.includes("fa-star"), false);
+  assert.match(project, /class="ml-presence-dot"/);
+  assert.equal(project.includes("fa-star"), false);
+  assert.match(session, /Participant Time/);
+  assert.match(session, /\{\{timeLabel\}\}/);
+  assert.match(session, /class="ml-presence-dot"/);
+  assert.equal(session.includes("gmOperations"), false);
+  assert.match(editor, /name="availableActivities"/);
+  assert.match(registration, /availableInSessions: true/);
+  assert.equal(registration.includes("availableInSessions: activity.presence"), false);
+  assert.match(css, /\.ml-downtime-session-detail \.ml-data-list > div \{[\s\S]*?grid-template-columns:\s*max-content minmax\(0, 1fr\)/);
 });

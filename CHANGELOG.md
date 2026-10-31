@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- A presence project shows a small green dot when it is **Active** and a hollow dot when it is **Inactive**. The owner or the GM clicks the hollow dot, or **Make Active**, to choose which project **Advance Day** credits. The dot is on the Project list, Project details, and Session details. Other project types have no dot.
+- Session details lists each participant's time in that Session, such as Darro with 12 / 16 hours. When **Days** is set, the line also shows days. The hours include instructor time, crafting, and Source Item labor. The days include presence activities and Source Item. The list updates while the window is open and is not on the main Downtime page.
+- Session details and Session History place each value directly after its label.
+- A Session saved before the Xanathar activities existed includes Religious Service, Carousing, Crime, Gambling, Pit Fighting, Relaxation, and Research. **Available Activities** on the Session editor lists them, and a GM can turn each one off.
 - Crafting projects stay in Downtime when the viewed scene can support the recipe. An active Session that is On the Road, or that has no Location, does not hide recipes Neverwinter can still support. Work already underway stays listed and shows as paused when neither place allows it. One recipe whose location check cannot be read no longer removes the rest of the crafting list.
 - **Commission** is no longer an **Available Activities** choice. **Source Item** remains, checked per Session. **Advance Day** spends 8 hours of that character's Session time for each day a Source Item Project progresses, when the Session includes the character and **Source Item**. A day advanced while **Source Item** is not enabled is not charged later. Commission days do not spend Session hours.
 - **Session History** lists each participant's spent time: who spent how many hours or days, on which Project or activity, and when. Training includes the student and the instructor. Crafting time and Source Item days are included.

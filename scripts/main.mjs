@@ -405,7 +405,7 @@ Hooks.once("ready", () => {
       return dashboardApp?.render({ force: true });
     }
   });
-  SessionDetailApp.configure({ sessions, projects, segments, locations: coreLocations, activities });
+  SessionDetailApp.configure({ sessions, projects, segments, locations: coreLocations, activities, allocationAuthority });
   ProjectDetailApp.configure({ projects, segments, sessions, activities, locations: coreLocations, allocationAuthority });
   const open = async () => {
     if (!dashboardApp) dashboardApp = new DowntimeDashboardApp();

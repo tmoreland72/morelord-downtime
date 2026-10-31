@@ -5,9 +5,9 @@ import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { titleCase } from "../ui/formatting.mjs";
 import { getModuleApi } from "../integrations/core-api.mjs";
 import { formatHistory } from "../ui/history.mjs";
-import { sessionJournal } from "../ui/session-spends.mjs";
+import { sessionJournal, sessionParticipantTime } from "../ui/session-spends.mjs";
 import { PERSUASION_PRICE_TIERS, formatPriceAdjustment, sourceItemCollectionNotice } from "../activities/source-item/source-item-activity.mjs";
-import { isPresenceProject } from "../domain/presence-focus.mjs";
+import { presenceMarker } from "../domain/presence-focus.mjs";
 
 class DetailApplication extends LiveDowntimeApplication {}
 
@@ -16,11 +16,14 @@ export class SessionDetailApp extends DetailApplication {
   static configure(services) { this.services = services; }
   static DEFAULT_OPTIONS = {
     id: "morelord-downtime-session-detail",
-    classes: ["ml-window", "ml-downtime-module"],
+    classes: ["ml-window", "ml-downtime-module", "ml-downtime-session-detail"],
     tag: "section",
     position: { width: 720, height: 680 },
     window: { title: "Downtime Session Details", icon: "fa-solid fa-calendar-days", resizable: true },
-    actions: {}
+    actions: {
+      setPresenceFocus: SessionDetailApp.setPresenceFocus,
+      viewProject: SessionDetailApp.viewProject
+    }
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/session-detail.hbs" } };
 
@@ -43,6 +46,27 @@ export class SessionDetailApp extends DetailApplication {
       projects,
       activityName: id => this.constructor.services.activities.get(id)?.name ?? null
     });
+    const participantTime = sessionParticipantTime({ session, segments });
+    const isGm = globalThis.game?.user?.isGM === true;
+    const ownedActorUuids = new Set(listCharacterActors({ ownedOnly: true }).map(actor => actor.uuid));
+    const ownsActor = uuid => [...ownedActorUuids].some(id => sameActor(id, uuid));
+    const participants = new Set(session.participants.map(entry => entry.actorUuid));
+    const closed = new Set(["completed", "cancelled", "failed"]);
+    const projectRows = projects.filter(project => {
+      const involved = participants.has(project.owner?.uuid)
+        || (project.participants ?? []).some(person => participants.has(person.actorUuid));
+      if (!involved || closed.has(project.status)) return false;
+      if (isGm) return true;
+      return ownsActor(project.owner?.uuid)
+        || trainingAudience(project, ownedActorUuids).instructs
+        || (project.participants ?? []).some(person => ownsActor(person.actorUuid));
+    }).map(project => ({
+      id: project.id,
+      name: project.name,
+      ownerName: project.owner?.name ?? project.owner?.uuid ?? "",
+      activityLabel: this.constructor.services.activities.get(project.activityType)?.name ?? titleCase(project.activityType),
+      ...presenceMarker(project, { canToggle: isGm || ownsActor(project.owner?.uuid) })
+    }));
     return {
       ...await super._prepareContext(options),
       session: {
@@ -52,10 +76,37 @@ export class SessionDetailApp extends DetailApplication {
         locationName: locations.find(location => location.id === session.locationId)?.name ?? "No Location",
         participantSummary: session.participants.map(entry => entry.name ?? entry.actorUuid).join(", "),
         activitySummary: session.availableActivities.map(id => this.constructor.services.activities.get(id)?.name ?? titleCase(id)).join(", ") || "No new Projects",
+        participantTime,
+        hasParticipantTime: participantTime.length > 0,
+        projects: projectRows,
+        hasProjects: projectRows.length > 0,
         historyEntries,
         hasHistory: historyEntries.length > 0
       }
     };
+  }
+
+  static async setPresenceFocus(event, target) {
+    event.preventDefault();
+    event.stopPropagation?.();
+    const projectId = target.closest("[data-project-id]")?.dataset.projectId;
+    if (!projectId) return;
+    target.disabled = true;
+    try {
+      await this.constructor.services.allocationAuthority.setPresenceFocus(projectId);
+      ui.notifications.info("That project is now Active.");
+      await this.render({ force: true });
+    } catch (error) {
+      ui.notifications.error(error.message);
+      target.disabled = false;
+    }
+  }
+
+  static viewProject(event, target) {
+    event.preventDefault();
+    const projectId = target.closest("[data-project-id]")?.dataset.projectId;
+    if (!projectId) return;
+    new ProjectDetailApp({ projectId }).render({ force: true });
   }
 }
 
@@ -132,10 +183,7 @@ export class ProjectDetailApp extends DetailApplication {
         elapsedLabel: `${elapsed.completedDays} / ${elapsed.requiredDays} days`,
         usesEffort: ["effort", "hybrid"].includes(project.progress.mode),
         usesElapsed: ["elapsed", "hybrid"].includes(project.progress.mode),
-        presenceTracked: isPresenceProject(project),
-        presenceFocus: project.presenceFocus === true,
-        presenceLabel: project.presenceFocus === true ? "Active" : "Inactive",
-        canSetPresenceFocus: isPresenceProject(project) && project.presenceFocus !== true && canManage,
+        ...presenceMarker(project, { canToggle: canManage }),
         canPlan: Boolean(upcomingSession && ["effort", "hybrid"].includes(project.progress.mode) && !upcomingSession.plannedProjectIds.includes(project.id) && canManage),
         plannedSessionId: upcomingSession?.id ?? null,
         canAllocate: Boolean(allocationPool && ["effort", "hybrid"].includes(project.progress.mode) && effortRemaining > 0 && canManage),
@@ -173,6 +221,7 @@ export class ProjectDetailApp extends DetailApplication {
 
   static async setPresenceFocus(event, target) {
     event.preventDefault();
+    event.stopPropagation?.();
     target.disabled = true;
     try {
       await this.constructor.services.allocationAuthority.setPresenceFocus(this.projectId);

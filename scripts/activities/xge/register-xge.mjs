@@ -18,7 +18,7 @@ export function registerXgeActivities(activities, service) {
       name: activity.name,
       icon: ICONS[id],
       description: activityDescription(id),
-      availableInSessions: activity.presence,
+      availableInSessions: true,
       createProject: data => service.createProject(data, { isGm: globalThis.game?.user?.isGM === true }),
       getSummary: xgeSummary,
       launch: () => new XgeProjectApp({ activityId: id }).render({ force: true }),
