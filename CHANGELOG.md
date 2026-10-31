@@ -9,7 +9,7 @@
 - Only a GM can create, edit, or delete a Downtime Session. Players see Sessions read-only. Saving a Session is rejected for a player.
 - An NPC instructor can teach only subjects the Location's **Instructor** specialty allows. **Any** or a blank specialty allows every subject. Neverwinter limited to **Common Sign Language** offers only that language. The check uses Core's `locationAllowsSpecialty` when Morelord Core 0.9.0 provides it.
 - Instructor specialty may be several keys. An empty list allows every subject. A specialty saved as a single value is still that one key. NPC and provider checks both use `locationAllowsSpecialty`.
-- The training list is the fixed D&D 2024 set of skills, languages, tools, weapons, armor, and weapon masteries. It uses Core's training catalog when that catalog is exposed, so the ids match Locations. It does not follow Configure Sources, compendium items, or extra system entries.
+- **Select Training** follows Configure Sources. The list is the skills, languages, tools, weapons, armor, and weapon masteries enabled for the world, including Xanathar's Guide to Everything and Tasha's Cauldron of Everything when those sources are enabled. An NPC instructor can still teach only subjects the Location's **Instructor** specialty allows.
 
 ## 0.2.1
 

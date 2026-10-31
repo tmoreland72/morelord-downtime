@@ -1,13 +1,11 @@
-import { trainingCatalogEntries } from "../activities/training/dnd2024-training-catalog.mjs";
-
+const titleCase = value => String(value).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/(^|\s)\S/g, letter => letter.toUpperCase());
 const asSet = value => new Set(value instanceof Set || Array.isArray(value) ? value : []);
 
 export class Dnd5eProficiencyAdapter {
-  constructor({ config = () => globalThis.CONFIG?.DND5E, resolveUuid = uuid => fromUuid(uuid), localize = key => game.i18n.localize(key), catalog = null } = {}) {
+  constructor({ config = () => globalThis.CONFIG?.DND5E, resolveUuid = uuid => fromUuid(uuid), localize = key => game.i18n.localize(key) } = {}) {
     this.getConfig = typeof config === "function" ? config : () => config;
     this.resolveUuid = resolveUuid;
     this.localize = localize;
-    this.catalog = catalog;
   }
 
   supports(kind) {
@@ -15,14 +13,33 @@ export class Dnd5eProficiencyAdapter {
   }
 
   async listTrainingChoices({ actors = [] } = {}) {
-    const entries = trainingCatalogEntries(this.catalog);
-    return entries.map(entry => this.#choice(
-      entry.kind,
-      entry.id,
-      entry.label,
-      entry.category,
-      actors
-    )).sort((left, right) => left.label.localeCompare(right.label) || left.category.localeCompare(right.category) || left.kind.localeCompare(right.kind));
+    const config = this.getConfig() ?? {};
+    const choices = [];
+    const addConfig = (values, kind, category) => {
+      for (const [id, data] of Object.entries(values ?? {})) {
+        choices.push(this.#choice(kind, id, this.localize(typeof data === "string" ? data : data?.label ?? id), category, actors));
+      }
+    };
+    const addDocuments = async (values, kind, category) => {
+      for (const [id, data] of Object.entries(values ?? {})) {
+        const uuid = typeof data === "string" ? data : data?.id;
+        const document = uuid ? await Promise.resolve(this.resolveUuid(uuid)).catch(() => null) : null;
+        const fallback = typeof data === "object" && data?.label ? this.localize(data.label) : titleCase(id);
+        choices.push(this.#choice(kind, id, document?.name ?? fallback, category, actors));
+      }
+    };
+
+    addConfig(config.skills, "skillProficiency", "Skill Proficiency");
+    addConfig(config.enrichmentLookup?.languages, "language", "Language");
+    addConfig(config.armorProficiencies, "armorProficiency", "Armor Proficiency");
+    await addDocuments({ ...(config.armorIds ?? {}), ...(config.shieldIds ?? {}) }, "armorProficiency", "Armor Proficiency");
+    addConfig(config.weaponProficiencies, "weaponProficiency", "Weapon Proficiency");
+    await addDocuments(config.weaponIds, "weaponProficiency", "Weapon Proficiency");
+    await addDocuments(config.weaponIds, "weaponMastery", "Weapon Mastery");
+    addConfig(config.toolProficiencies, "toolProficiency", "Tool Proficiency");
+    await addDocuments(config.tools, "toolProficiency", "Tool Proficiency");
+
+    return choices.sort((left, right) => left.label.localeCompare(right.label) || left.category.localeCompare(right.category));
   }
 
   actorKnows(actor, kind, id) {

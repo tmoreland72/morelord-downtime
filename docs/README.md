@@ -63,7 +63,7 @@ These are the Downtime uses:
 
 ### Training
 
-An NPC instructor teaches the subjects checked on the location's **Instructor** capability. Those subjects are the D&D 2024 languages, skills, tools, weapons, armor, and weapon masteries, the same list as **Select Training**. **Any** allows every subject in that list. A location whose only Instructor specialty is Common Sign Language teaches that language. A weapon and its weapon mastery share one specialty, so checking that weapon covers both the weapon proficiency and the weapon mastery.
+An NPC instructor teaches a **Select Training** subject when the location's **Instructor** capability includes that subject. **Select Training** follows Configure Sources: skills, languages, tools, weapons, armor, and weapon masteries from the sources enabled for the world, including Xanathar's Guide to Everything and Tasha's Cauldron of Everything when those sources are enabled. **Any** allows every subject in that list. A location whose only Instructor specialty is Common Sign Language teaches that language. A weapon and its weapon mastery share an id, so checking that weapon covers both.
 
 A location with no **Instructor** capability has no subjects for an NPC. **Select Training** then reports that this location's Instructor cannot teach the subjects in the current list, and saving the Project is refused with "This Location's Instructor cannot teach that subject."
 
@@ -119,7 +119,7 @@ Research appears in New Project and Session activity choices only while the Drak
 
 ### Training
 
-Select the student, exact proficiency or weapon mastery, and instructor. The training list is the fixed D&D 2024 set of skills, languages, tools, weapons, armor, and weapon masteries, the same subjects as a location's **Instructor** specialties. See **Shared Locations** for NPC instructors, **Any**, a location with no Instructor capability, and **No fixed Location**. A character instructor must know the selected proficiency, must differ from the student, and contribute the same hours. Successful completion applies the proficiency to the student and records the outcome.
+Select the student, exact proficiency or weapon mastery, and instructor. **Select Training** follows Configure Sources, so the list is the skills, languages, tools, weapons, armor, and weapon masteries enabled for the world. That includes Xanathar's Guide to Everything and Tasha's Cauldron of Everything when those sources are enabled. See **Shared Locations** for NPC instructors, **Any**, a location with no Instructor capability, and **No fixed Location**. A character instructor must know the selected proficiency, must differ from the student, and contribute the same hours. Successful completion applies the proficiency to the student and records the outcome.
 
 Estimates appear after selecting the proficiency. Languages and tools use `(10 − positive Intelligence modifier) × 40` hours with a one-workweek floor. Other proficiencies and masteries use that baseline as a labeled GM-defined extension. The GM may adjust it, and existing saved durations are preserved.
 
