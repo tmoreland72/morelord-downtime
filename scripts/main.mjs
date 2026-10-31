@@ -18,7 +18,6 @@ import { CraftworksProjectAdapter } from "./adapters/craftworks-project-adapter.
 import { registerCraftTimeTracking } from "./integrations/craft-time-tracking.mjs";
 import { CraftTimeService, craftingProjectsFromFlags } from "./services/craft-time-service.mjs";
 import { isPrimaryActiveGm } from "./services/primary-gm.mjs";
-import { sourcingTimeEntry } from "./activities/source-item/source-item-time.mjs";
 import { assertNpcInstructorSpecialty } from "./domain/instructor-specialty.mjs";
 import { COMMISSION_ACTIVITY_ID, commissionSummary, createCommissionProject } from "./activities/commission/commission-activity.mjs";
 import { addMorelordTool, getCoreApi, getCoreLocations, getModuleApi } from "./integrations/core-api.mjs";
@@ -100,25 +99,6 @@ const allocationAuthority = new AllocationAuthorityService({
   getSourceItem: () => sourceItemApi,
   getResearch: () => researchApi
 });
-
-async function logSourcingTime(input = {}) {
-  if (globalThis.game?.user && game.user.isGM !== true) throw new Error("Only a GM may record sourcing time.");
-  const entry = sourcingTimeEntry(input);
-  const actor = input.actor
-    ?? globalThis.game?.actors?.get?.(entry.actorUuid.split(".").at(-1))
-    ?? null;
-  if (globalThis.game?.actors && (!actor || actor.uuid !== entry.actorUuid)) throw new Error("Choose a character in this Session.");
-  const result = await craftTime.recordHours({
-    actor: actor ?? { id: entry.actorUuid.split(".").at(-1), uuid: entry.actorUuid, type: "character", name: input.actorName ?? null },
-    activityId: SOURCE_ITEM_ACTIVITY_ID,
-    hours: entry.hours,
-    label: entry.label,
-    projectId: entry.projectId
-  });
-  if (result?.reason === "not-gm") throw new Error("Only a GM may record sourcing time.");
-  if (!result?.recorded) throw new Error("Sourcing time was not added. Start a Session that includes this character and Source Item.");
-  return result;
-}
 
 function readCraftingProjects(actor) {
   const fromFlags = craftingProjectsFromFlags(actor);
@@ -399,8 +379,8 @@ Hooks.once("ready", () => {
       return dashboardApp?.render({ force: true });
     }
   });
-  SessionDetailApp.configure({ sessions, projects, segments, locations: coreLocations, activities, logSourcingTime });
-  ProjectDetailApp.configure({ projects, segments, sessions, activities, locations: coreLocations, allocationAuthority, logSourcingTime });
+  SessionDetailApp.configure({ sessions, projects, segments, locations: coreLocations, activities });
+  ProjectDetailApp.configure({ projects, segments, sessions, activities, locations: coreLocations, allocationAuthority });
   const open = async () => {
     if (!dashboardApp) dashboardApp = new DowntimeDashboardApp();
     return dashboardApp.render({ force: true });

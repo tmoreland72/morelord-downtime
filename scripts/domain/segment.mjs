@@ -81,7 +81,7 @@ export function releaseProjectHours(source, projectId) {
 }
 
 /** Record time a character has already spent. Crafting can exceed the plan because the time is already gone. */
-export function recordSpentHours(source, { actorUuid, hours: requestedHours, projectId, at = Date.now(), sourceName = "craftworks", recipeId = null, recipeName = null } = {}) {
+export function recordSpentHours(source, { actorUuid, hours: requestedHours, projectId, at = Date.now(), sourceName = "craftworks", recipeId = null, recipeName = null, activityId = null, days = null } = {}) {
   const segment = clone(source);
   if (segment.status !== "open") throw new Error("Only an active Downtime Session can record spent time.");
   const spent = hours(requestedHours);
@@ -97,7 +97,9 @@ export function recordSpentHours(source, { actorUuid, hours: requestedHours, pro
     createdAt: at,
     source: String(sourceName),
     recipeId: recipeId == null ? null : String(recipeId),
-    recipeName: recipeName == null ? null : String(recipeName)
+    recipeName: recipeName == null ? null : String(recipeName),
+    activityId: activityId == null ? null : String(activityId),
+    days: days == null ? null : Number(days)
   };
   segment.allocations.push(allocation);
   return { segment, allocation, exceeded: participant.allocatedHours > participant.availableHours };

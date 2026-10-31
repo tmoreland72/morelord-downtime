@@ -5,7 +5,8 @@ import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { titleCase } from "../ui/formatting.mjs";
 import { getModuleApi } from "../integrations/core-api.mjs";
 import { formatHistory } from "../ui/history.mjs";
-import { PERSUASION_PRICE_TIERS, SOURCE_ITEM_ACTIVITY_ID, formatPriceAdjustment, sourceItemCollectionNotice } from "../activities/source-item/source-item-activity.mjs";
+import { sessionSpends } from "../ui/session-spends.mjs";
+import { PERSUASION_PRICE_TIERS, formatPriceAdjustment, sourceItemCollectionNotice } from "../activities/source-item/source-item-activity.mjs";
 
 class DetailApplication extends LiveDowntimeApplication {}
 
@@ -18,7 +19,7 @@ export class SessionDetailApp extends DetailApplication {
     tag: "section",
     position: { width: 720, height: 680 },
     window: { title: "Downtime Session Details", icon: "fa-solid fa-calendar-days", resizable: true },
-    actions: { logSourcing: SessionDetailApp.logSourcing }
+    actions: {}
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/session-detail.hbs" } };
 
@@ -31,15 +32,18 @@ export class SessionDetailApp extends DetailApplication {
     const session = await this.constructor.services.sessions.get(this.sessionId);
     if (!session) throw new Error("Session not found.");
     const locations = this.constructor.services.locations()?.list?.() ?? [];
-    const isGm = globalThis.game?.user?.isGM === true;
-    const canLogSourcing = isGm && session.status === "active" && session.availableActivities.includes(SOURCE_ITEM_ACTIVITY_ID);
+    const [segments, projects] = await Promise.all([
+      this.constructor.services.segments.list(),
+      this.constructor.services.projects.list()
+    ]);
+    const spends = sessionSpends({
+      session,
+      segments,
+      projects,
+      activityName: id => this.constructor.services.activities.get(id)?.name ?? null
+    });
     return {
       ...await super._prepareContext(options),
-      canLogSourcing,
-      sourcingParticipants: session.participants.map(entry => ({
-        actorUuid: entry.actorUuid,
-        name: entry.name ?? entry.actorUuid
-      })),
       session: {
         ...session,
         statusLabel: { pending: "Pending", active: "Active", finalized: "Finalized", cancelled: "Cancelled" }[session.status] ?? session.status,
@@ -47,25 +51,10 @@ export class SessionDetailApp extends DetailApplication {
         locationName: locations.find(location => location.id === session.locationId)?.name ?? "No Location",
         participantSummary: session.participants.map(entry => entry.name ?? entry.actorUuid).join(", "),
         activitySummary: session.availableActivities.map(id => this.constructor.services.activities.get(id)?.name ?? titleCase(id)).join(", ") || "No new Projects",
-        history: await formatHistory(session.history, this.constructor.services, session)
+        spends,
+        hasSpends: spends.length > 0
       }
     };
-  }
-
-  static async logSourcing(event, target) {
-    event.preventDefault();
-    target.disabled = true;
-    try {
-      const result = await this.constructor.services.logSourcingTime({
-        actorUuid: this.element.querySelector("[data-sourcing-actor]")?.value,
-        itemName: this.element.querySelector("[data-sourcing-item]")?.value,
-        hours: this.element.querySelector("[data-sourcing-hours]")?.value
-      });
-      ui.notifications.info(`Logged ${result.hours} sourcing ${result.hours === 1 ? "hour" : "hours"} on the active Session.`);
-      await this.render({ force: true });
-    } catch (error) {
-      ui.notifications.error(`Could not log sourcing time: ${error.message}`);
-    } finally { target.disabled = false; }
   }
 }
 
@@ -85,8 +74,7 @@ export class ProjectDetailApp extends DetailApplication {
       negotiateSourceItem: ProjectDetailApp.negotiateSourceItem,
       openSourceItem: ProjectDetailApp.openSourceItem,
       openResearchRecipe: ProjectDetailApp.openResearchRecipe,
-      collectCommission: ProjectDetailApp.collectCommission,
-      logSourcing: ProjectDetailApp.logSourcing
+      collectCommission: ProjectDetailApp.collectCommission
     }
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/project-detail.hbs" } };
@@ -120,10 +108,6 @@ export class ProjectDetailApp extends DetailApplication {
       .find(session => session.availableActivities.includes(project.activityType));
     const canManage = game.user.isGM || [...ownedActorUuids].some(uuid => sameActor(uuid, project.owner.uuid));
     const audience = trainingAudience(project, ownedActorUuids);
-    const sourcingSession = sourceItem && game.user.isGM
-      ? activeSessions.find(session => session.availableActivities.includes(SOURCE_ITEM_ACTIVITY_ID)
-        && session.participants.some(entry => entry.actorUuid === project.owner.uuid))
-      : null;
     const effortRemaining = Math.max(0, effort.requiredHours - effort.completedHours);
     return {
       ...await super._prepareContext(options),
@@ -176,7 +160,6 @@ export class ProjectDetailApp extends DetailApplication {
             : null,
           canNegotiate: Boolean(sourceItem.outcome && !sourceItem.persuasion && !sourceItem.pendingPersuasion && canManage)
         } : null,
-        canLogSourcing: Boolean(sourcingSession && !sourceItem?.outcome),
         history: await formatHistory(project.history, this.constructor.services, project)
       }
     };
@@ -214,26 +197,6 @@ export class ProjectDetailApp extends DetailApplication {
     await this.constructor.services.allocationAuthority.planProject(target.dataset.sessionId, this.projectId);
     ui.notifications.info("Project planned for the upcoming Downtime Session.");
     await this.render({ force: true });
-  }
-
-  static async logSourcing(event, target) {
-    event.preventDefault();
-    target.disabled = true;
-    try {
-      const project = await this.constructor.services.projects.get(this.projectId);
-      const sourceItem = project?.metadata?.sourceItem;
-      const result = await this.constructor.services.logSourcingTime({
-        actorUuid: project?.owner?.uuid,
-        actorName: project?.owner?.name ?? null,
-        itemName: sourceItem?.target?.name,
-        hours: this.element.querySelector("[data-sourcing-hours]")?.value,
-        projectId: project?.id
-      });
-      ui.notifications.info(`Logged ${result.hours} sourcing ${result.hours === 1 ? "hour" : "hours"} on the active Session.`);
-      await this.render({ force: true });
-    } catch (error) {
-      ui.notifications.error(`Could not log sourcing time: ${error.message}`);
-    } finally { target.disabled = false; }
   }
 
   static async negotiateSourceItem(event, target) {

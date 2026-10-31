@@ -26,6 +26,8 @@ The package has been submitted to Foundry for approval. Submission alone does no
 2. Create a Session with its Location, participants, and permitted activities. **Days** is optional and starts blank. **Hours** is each character's allocatable time and starts at 40. Setting **Days** fills **Hours** with **Days** × 8, and **Hours** can then be changed. A Session can be 2 hours with no days, or 2 days with 20 hours. The Session is **Pending**, so participants can review it. Only a GM can edit **Days** and **Hours**.
 3. Start the Session to make **Hours** available. **Advance Day** applies one day to projects measured in days. Those projects are limited by **Days** only when **Days** is set. Hour allocations are limited by **Hours** and can continue until the GM finalizes the Session. Finalize when the Session should close, or cancel it while keeping its record. Unfinished Projects remain available for later Sessions. Saved sessions keep their hours and leave **Days** blank.
 
+**Session History** on a Session lists each participant's spent time: who, how many hours or days, which Project or activity, and when. Training includes the student and the instructor. Crafting time and Source Item days are included.
+
 Character choices include player-owned characters and character members of the primary party; ownership still controls player access. The primary active GM handles player requests, so a GM must be connected for those requests to complete.
 
 ## Player workflow
@@ -83,7 +85,7 @@ Work already underway stays in the list and shows as paused when neither the sce
 
 ### Source Item
 
-**Location** is required. The menu starts at **Choose a Location**. Downtime stores that location on the Project. The search then uses the wishlist item, the gold, the weeks, and Arcana or Investigation. **Log Sourcing Time** adds hours for a participant on an active Session whose **Available Activities** include **Source Item**.
+**Location** is required. The menu starts at **Choose a Location**. Downtime stores that location on the Project. The search then uses the wishlist item, the gold, the weeks, and Arcana or Investigation.
 
 ### Commission
 
@@ -133,7 +135,7 @@ Requires Marketplace. Select a Common through Legendary magic item from the char
 
 When the weeks are finished, Downtime posts a **Source Item** roll request in chat for the owning player. Clicking **Roll** opens the normal skill roll dialog for Arcana or Investigation. The player makes that roll. A GM can click it when that player is offline. The same sourcing result is then revealed. The investment bonus is added to the roll. A successful result says the item must be picked up at the Project's assigned Location and names that Location. The chat card and the Project's **Sourcing Result** both include that line, under **Pickup** on the Project. If no Location is assigned, those results say **No location is assigned** and do not include a pickup line.
 
-**Source Item** is also an **Available Activities** choice, checked per Session, like Crafting. On an active Session that includes it, the GM uses **Log Sourcing Time** to record hours a participant spent looking for an item. The same control is on an open Source Item Project. Those hours are added to that character's allocated Session time. A day advanced on the Project does not itself spend Session hours, and time logged while Source Item is not enabled is not applied later. Completion reveals an offer for the requested item or 1d4 Marketplace alternatives of the same or lower rarity. **Request Persuasion Roll** posts a chat roll request. The owning player clicks **Roll** and makes a Persuasion check in the skill roll dialog. A GM can roll it when that player is offline. The roll is compared with the sourcing DC:
+**Source Item** is also an **Available Activities** choice, checked per Session, like Crafting. **Advance Day** spends 8 hours of that character's Session time for each day the Project progresses, when the active Session includes the character and **Source Item**. A day advanced while **Source Item** is not enabled, or while the character is not in the Session, is not charged later. Completion reveals an offer for the requested item or 1d4 Marketplace alternatives of the same or lower rarity. **Request Persuasion Roll** posts a chat roll request. The owning player clicks **Roll** and makes a Persuasion check in the skill roll dialog. A GM can roll it when that player is offline. The roll is compared with the sourcing DC:
 
 - Fail by 5 or more: price +10%
 - Fail by 1 to 4: price +5%
@@ -167,7 +169,7 @@ Project and Session details show history newest first, with timestamps and reada
 - **Downtime is not under Morelord Tools, or an open window does not update after crafting:** update Morelord Core to 0.9.0 or newer. Until Core provides that tools registry, the same timer button stays on the Token controls. Core 0.9.0 refreshes the open window without bringing it forward.
 - **No available hours:** the GM must start a Session that includes the character and permits the activity.
 - **Request does not complete:** confirm a GM is connected and Core is enabled.
-- **Crafting or Source Item did not reduce available time:** start a Downtime Session that includes the character and enable that activity under **Available Activities**. For Source Item, use **Log Sourcing Time** and enter the hours. Keep the primary GM connected for crafting checks. Time spent before the Session allowed the activity is not applied later. Cancelling a craft does not return time already recorded.
+- **Crafting or Source Item did not reduce available time:** start a Downtime Session that includes the character and enable that activity under **Available Activities**. For Source Item, use **Advance Day** while that Session is active. Keep the primary GM connected for crafting checks. Time spent before the Session allowed the activity is not applied later. Cancelling a craft does not return time already recorded.
 - **Crafting projects are missing:** confirm the character is viewing the scene for that Location, such as Neverwinter. Recipes that Location cannot support stay off the list. Work already started stays visible.
 - **A player cannot change a Session:** only a GM can create, edit, or delete Sessions. Players open them read-only.
 - **Missing crafting or sourcing options:** check the optional integration and its required version; sourcing also needs an eligible wishlist item.

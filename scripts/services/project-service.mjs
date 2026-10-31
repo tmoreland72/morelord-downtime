@@ -1,5 +1,7 @@
 import { advanceElapsedDay, appendHistory, applyEffort, createProject } from "../domain/project.mjs";
-import { releaseProjectHours } from "../domain/segment.mjs";
+import { recordSpentHours, releaseProjectHours } from "../domain/segment.mjs";
+import { LABOR_DAY_HOURS } from "../domain/labor-time.mjs";
+import { SOURCE_ITEM_ACTIVITY_ID } from "../activities/source-item/source-item-activity.mjs";
 
 function releaseTrainingHours(state, projectId) {
   for (const segment of Object.values(state.segments ?? {})) {
@@ -181,6 +183,7 @@ export class ProjectService {
       }
       state.projects[id] = project;
       const daysApplied = project.progress.elapsed.completedDays - existing.progress.elapsed.completedDays;
+      if (daysApplied > 0) chargeSourceItemSessionTime(state, project, daysApplied, activeSession, this.now());
       if (daysApplied > 0 || project.status !== existing.status) {
         const copy = structuredClone(project);
         if (daysApplied > 0) copy.elapsedDaysApplied = daysApplied;
@@ -192,4 +195,27 @@ export class ProjectService {
     await this.repository.write(state);
     return { advanced: true, duplicate: false, idempotencyKey: dayKey, source, metadata: structuredClone(metadata), projects: changed };
   }
+}
+
+/** One advanced Source Item day spends one 8-hour labor day from that character's active Session. */
+function chargeSourceItemSessionTime(state, project, daysApplied, activeSession, at) {
+  if (project.activityType !== SOURCE_ITEM_ACTIVITY_ID || !activeSession) return;
+  if (!activeSession.availableActivities?.includes(SOURCE_ITEM_ACTIVITY_ID)) return;
+  const actorUuid = project.owner?.uuid;
+  if (!actorUuid) return;
+  const segment = (activeSession.segmentIds ?? [])
+    .map(id => state.segments[id])
+    .find(entry => entry?.status === "open" && entry.participants.some(participant => participant.actorUuid === actorUuid));
+  if (!segment) return;
+  const result = recordSpentHours(segment, {
+    actorUuid,
+    hours: daysApplied * LABOR_DAY_HOURS,
+    projectId: project.id,
+    at,
+    sourceName: "source-item",
+    recipeName: project.metadata?.sourceItem?.target?.name ?? project.name,
+    activityId: SOURCE_ITEM_ACTIVITY_ID,
+    days: daysApplied
+  });
+  state.segments[result.segment.id] = result.segment;
 }
