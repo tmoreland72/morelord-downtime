@@ -1,6 +1,17 @@
 import { getCoreParticipation } from "../integrations/core-api.mjs";
 import { DowntimeApplication } from "./downtime-application.mjs";
 import { XGE_ACTIVITIES } from "../activities/xge/xge-rules.mjs";
+import {
+  CRIME_THIRD_CHECKS,
+  GAMBLING_CHECKS,
+  GAMBLING_TOOLS,
+  PIT_CHECKS,
+  RELIGIOUS_CHECKS,
+  RESEARCH_CHECKS,
+  actorFromUuid,
+  applyCheckLabels,
+  labelChecks
+} from "../ui/check-label.mjs";
 
 export class XgeProjectApp extends DowntimeApplication {
   static services = null;
@@ -41,8 +52,30 @@ export class XgeProjectApp extends DowntimeApplication {
       isResearch: this.activityId === "lore-research",
       isRelaxation: this.activityId === "relaxation",
       needsTemple: activity?.capability === "temple",
-      needsLibrary: activity?.capability === "library"
+      needsLibrary: activity?.capability === "library",
+      religiousChecks: labelChecks(null, RELIGIOUS_CHECKS),
+      crimeChecks: labelChecks(null, CRIME_THIRD_CHECKS),
+      gamblingChecks: labelChecks(null, GAMBLING_CHECKS),
+      gamblingTools: labelChecks(null, GAMBLING_TOOLS),
+      pitChecks: labelChecks(null, PIT_CHECKS),
+      researchChecks: labelChecks(null, RESEARCH_CHECKS)
     };
+  }
+
+  _onRender(context, options) {
+    super._onRender(context, options);
+    const owner = this.element.querySelector('[name="ownerUuid"]');
+    const refresh = () => { void this.refreshCheckLabels(); };
+    owner?.addEventListener("change", refresh);
+    refresh();
+  }
+
+  async refreshCheckLabels() {
+    const select = this.element?.querySelector('[name="ownerUuid"]');
+    const uuid = select?.value ?? "";
+    const actor = await actorFromUuid(uuid);
+    if (!this.element || this.element.querySelector('[name="ownerUuid"]')?.value !== uuid) return;
+    applyCheckLabels(this.element, actor);
   }
 
   static async save(event, target) {

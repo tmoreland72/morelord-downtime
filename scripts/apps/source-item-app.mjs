@@ -2,7 +2,7 @@ import { projectManagementActions, projectManagementContext } from "./project-ma
 import { SOURCE_ITEM_RARITIES, sourcingBonus } from "../activities/source-item/source-item-activity.mjs";
 import { getCoreParticipation } from "../integrations/core-api.mjs";
 import { DowntimeApplication } from "./downtime-application.mjs";
-import { getCoreApi } from "../integrations/core-api.mjs";
+import { SOURCE_ITEM_CHECKS, labelChecks } from "../ui/check-label.mjs";
 
 export class SourceItemProjectApp extends DowntimeApplication {
   static services = null;
@@ -22,6 +22,7 @@ export class SourceItemProjectApp extends DowntimeApplication {
     super(options);
     this.projectId = options.projectId ?? null;
     this.selectedOwnerUuid = null;
+    this.selectedCheckSkill = null;
     this.wishlist = [];
   }
 
@@ -53,10 +54,10 @@ export class SourceItemProjectApp extends DowntimeApplication {
       wishlist: this.wishlist.map(item => ({ ...item, selected: item.uuid === sourceItem.target?.uuid })),
       hasWishlist: this.wishlist.length > 0,
       locations: (this.constructor.services.locations()?.list?.() ?? []).map(location => ({ ...location, selected: location.id === project?.locationId })),
-      checkArcana: sourceItem.checkSkill !== "inv",
-      checkInvestigation: sourceItem.checkSkill === "inv",
-      arcanaModifier: formatModifier(getCoreApi().rolls.skillModifier(selectedActor, "arc")),
-      investigationModifier: formatModifier(getCoreApi().rolls.skillModifier(selectedActor, "inv")),
+      sourceChecks: labelChecks(selectedActor, SOURCE_ITEM_CHECKS).map(check => ({
+        ...check,
+        selected: check.value === (this.selectedCheckSkill ?? (sourceItem.checkSkill === "inv" ? "inv" : "arc"))
+      })),
       investmentGp: sourceItem.investmentGp ?? 100,
       maxInvestmentGp: Number(sourceItem.investmentGp ?? 0) + availableGp,
       availableGp,
@@ -71,6 +72,7 @@ export class SourceItemProjectApp extends DowntimeApplication {
     super._onRender(context, options);
     this.element.querySelector('[name="ownerUuid"]')?.addEventListener("change", event => {
       this.selectedOwnerUuid = event.currentTarget.value;
+      this.selectedCheckSkill = this.element.querySelector('[name="checkSkill"]')?.value ?? this.selectedCheckSkill;
       void this.render({ force: true });
     });
     const updateBonus = () => {
@@ -140,9 +142,4 @@ export class SourceItemProjectApp extends DowntimeApplication {
       this.updateSaveAvailability();
     }
   }
-}
-
-function formatModifier(value) {
-  const modifier = Number(value) || 0;
-  return modifier >= 0 ? `+${modifier}` : String(modifier);
 }
