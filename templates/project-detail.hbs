@@ -52,5 +52,5 @@
     <div class="ml-section-heading"><div><h2>Project History</h2><p>Progress, decisions, and status changes recorded for this Project.</p></div></div>
     <ol class="ml-stack" data-gap="2">{{#each project.history}}<li class="ml-card ml-stack" data-gap="1"><strong>{{label}}</strong><small>{{when}}</small>{{#if details}}<p>{{details}}</p>{{/if}}</li>{{/each}}</ol>
   </section>
-  <footer class="ml-page-footer ml-actions">{{#if canCancelProject}}<button type="button" data-action="cancelProject" data-tone="danger"><i class="fa-solid fa-ban"></i> Cancel Project</button>{{/if}}{{#if canDeleteProject}}<button type="button" data-action="deleteProject" data-tone="danger"><i class="fa-solid fa-trash"></i> Delete Project</button>{{/if}}</footer>
+  <footer class="ml-page-footer ml-downtime-edit-footer">{{#if canCancelProject}}<button type="button" data-action="cancelProject" data-tone="danger"><i class="fa-solid fa-ban"></i> Cancel Project</button>{{/if}}{{#if canDeleteProject}}<button type="button" data-action="deleteProject" data-tone="danger"><i class="fa-solid fa-trash"></i> Delete Project</button>{{/if}}</footer>
 </section>

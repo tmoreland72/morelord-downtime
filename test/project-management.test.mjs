@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { projectManagementActions, projectManagementContext } from "../scripts/apps/project-management.mjs";
 
 test("project controls respect ownership, progress, and cancellation; actions require confirmation", async () => {
@@ -37,4 +38,19 @@ test("project controls respect ownership, progress, and cancellation; actions re
       else globalThis[key] = value;
     }
   }
+});
+
+test("Cancel and Delete stay off the Project list and sit on the right of the editor", () => {
+  const list = readFileSync(new URL("../templates/downtime-dashboard.hbs", import.meta.url), "utf8");
+  const editors = ["create-training.hbs", "create-commission.hbs", "create-source-item.hbs", "project-detail.hbs"]
+    .map(name => readFileSync(new URL(`../templates/${name}`, import.meta.url), "utf8"));
+  const css = readFileSync(new URL("../styles/morelord-downtime.css", import.meta.url), "utf8");
+  assert.equal(list.includes("cancelProject"), false);
+  assert.equal(list.includes("deleteProject"), false);
+  for (const template of editors) {
+    assert.match(template, /class="ml-page-footer ml-downtime-edit-footer"/);
+    assert.match(template, /data-action="cancelProject"/);
+    assert.match(template, /data-action="deleteProject"/);
+  }
+  assert.match(css, /\.ml-downtime-edit-footer \{[^}]*justify-content:\s*flex-end/);
 });

@@ -45,7 +45,6 @@
           <div class="ml-resource-actions">
             {{#if canSetPresenceFocus}}<button type="button" data-action="setPresenceFocus" title="Make this the Active presence project">Make Active</button>{{/if}}
             {{#if external}}<button type="button" data-action="openCrafting" title="Open in Craftworks"><i class="fa-solid fa-pen"></i></button>{{else}}{{#if canCollectProject}}<button type="button" data-action="collectProject" title="Collect Commission"><i class="fa-solid fa-box-open"></i></button>{{else}}{{#if isClosed}}<button type="button" data-action="viewProject" title="View Project"><i class="fa-solid fa-eye"></i></button>{{else}}{{#if canEditProject}}<button type="button" data-action="editProject" title="Edit Project"><i class="fa-solid fa-pen"></i></button>{{else}}<button type="button" data-action="viewProject" title="View Project"><i class="fa-solid fa-eye"></i></button>{{/if}}{{/if}}{{/if}}{{/if}}
-            {{#if canCancelProject}}<button type="button" data-action="cancelProject" data-tone="danger" title="Cancel Project"><i class="fa-solid fa-ban"></i></button>{{/if}}{{#if canDeleteProject}}<button type="button" data-action="deleteProject" data-tone="danger" title="Delete Project"><i class="fa-solid fa-trash"></i></button>{{/if}}
           </div>
         </div>
       </article>{{/each}}
