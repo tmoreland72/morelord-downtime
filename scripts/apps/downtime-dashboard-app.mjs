@@ -7,6 +7,7 @@ import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { craftingPlaceLabel, craftingPlaces } from "../domain/crafting-places.mjs";
 import { getCoreApi } from "../integrations/core-api.mjs";
 import { titleCase } from "../ui/formatting.mjs";
+import { isPresenceProject } from "../domain/presence-focus.mjs";
 
 function requireSessionGm() {
   if (globalThis.game?.user && game.user.isGM !== true) {
@@ -49,6 +50,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
       openSession: DowntimeDashboardApp.openSession,
       viewSession: DowntimeDashboardApp.viewSession,
       viewProject: DowntimeDashboardApp.viewProject,
+      setPresenceFocus: DowntimeDashboardApp.setPresenceFocus,
       openCrafting: DowntimeDashboardApp.openCrafting,
       editProject: DowntimeDashboardApp.editProject,
       ...projectManagementActions,
@@ -156,6 +158,10 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
           && (isGm || ownsActor(project.owner.uuid)),
         canCancelProject: !["completed", "awaiting-collection", "cancelled", "failed"].includes(project.status) && (isGm || ownsActor(project.owner.uuid)),
         canDeleteProject: (project.status === "cancelled" || projectIsUnused(project)) && (isGm || ownsActor(project.owner.uuid)),
+        presenceTracked: isPresenceProject(project),
+        presenceFocus: project.presenceFocus === true,
+        presenceLabel: project.presenceFocus === true ? "Active" : "Inactive",
+        canSetPresenceFocus: isPresenceProject(project) && project.presenceFocus !== true && (isGm || ownsActor(project.owner.uuid)),
         canCollectProject: project.activityType === "commission" && project.status === "awaiting-collection" && (isGm || ownsActor(project.owner.uuid)),
         isClosed: ["completed", "cancelled", "failed"].includes(project.status)
           || (project.status === "awaiting-collection" && project.activityType !== "commission")
@@ -250,6 +256,20 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
     event.preventDefault();
     const sessionId = target.closest("[data-session-id]")?.dataset.sessionId;
     new SessionDetailApp({ sessionId }).render({ force: true });
+  }
+
+  static async setPresenceFocus(event, target) {
+    event.preventDefault();
+    const projectId = target.closest("[data-project-id]")?.dataset.projectId;
+    target.disabled = true;
+    try {
+      await this.constructor.services.allocationAuthority.setPresenceFocus(projectId);
+      ui.notifications.info("That project is now Active.");
+      await this.render({ force: true });
+    } catch (error) {
+      ui.notifications.error(error.message);
+      target.disabled = false;
+    }
   }
 
   static viewProject(event, target) {

@@ -3,6 +3,7 @@ import { recordSpentDays, recordSpentHours, releaseProjectHours } from "../domai
 import { LABOR_DAY_HOURS } from "../domain/labor-time.mjs";
 import { SOURCE_ITEM_ACTIVITY_ID } from "../activities/source-item/source-item-activity.mjs";
 import { elapsedDayApplies, xgePolicy } from "../activities/xge/xge-rules.mjs";
+import { activatePresenceFocus, normalizePresenceFocus } from "../domain/presence-focus.mjs";
 
 function releaseTrainingHours(state, projectId) {
   for (const segment of Object.values(state.segments ?? {})) {
@@ -46,8 +47,18 @@ export class ProjectService {
     });
     if (state.projects[project.id]) throw new Error(`Project '${project.id}' already exists.`);
     state.projects[project.id] = project;
+    normalizePresenceFocus(state.projects, { now: this.now() });
     await this.repository.write(state);
-    return structuredClone(project);
+    return structuredClone(state.projects[project.id]);
+  }
+
+  async setPresenceFocus(id) {
+    this.#requireGm();
+    const state = await this.repository.read();
+    if (!state.projects[String(id)]) throw new Error("Project not found.");
+    activatePresenceFocus(state.projects, id, this.now());
+    await this.repository.write(state);
+    return structuredClone(state.projects[String(id)]);
   }
 
   async commit(project) {

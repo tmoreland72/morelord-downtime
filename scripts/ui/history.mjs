@@ -33,6 +33,7 @@ export async function formatHistory(history, services, record = {}) {
         break;
       }
       case "elapsed-day": details = `${data.days} ${data.days === 1 ? "day" : "days"} of progress recorded.`; break;
+      case "presence-focus": details = data.summary || (data.active ? "Marked Active. Advance Day credits this project." : "Marked Inactive. Advance Day skips this project."); break;
       case "updated": details = `Changed: ${(data.fields ?? []).map(fieldLabel).join(", ") || "Details"}.`; break;
       case "completed": details = data.status === "awaiting-collection" ? "Work finished; ready for collection." : "Project completed."; break;
       case "cancelled": details = data.reason ? `Reason: ${data.reason}` : "Cancelled."; break;

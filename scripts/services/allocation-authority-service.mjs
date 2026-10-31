@@ -100,6 +100,12 @@ export class AllocationAuthorityService {
     return this.#request("sourceItemPersuasionRoll", input);
   }
 
+  async setPresenceFocus(projectId) {
+    const input = { projectId: String(projectId) };
+    if (game.user.isGM) return this.projects.setPresenceFocus(input.projectId);
+    return this.#request("presenceFocus", input);
+  }
+
   async planProject(sessionId, projectId) {
     const input = { sessionId: String(sessionId), projectId: String(projectId) };
     if (game.user.isGM) return this.sessions.planProject(input.sessionId, input.projectId);
@@ -202,6 +208,9 @@ export class AllocationAuthorityService {
       } else if (kind === "xgeRoll") {
         await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
         result = await this.getXge().applyStoredRoll(message.input.projectId, message.input.total, { messageId: message.input.messageId });
+      } else if (kind === "presenceFocus") {
+        await this.#authorizeProjectOwner(message.userId, message.input.projectId);
+        result = await this.projects.setPresenceFocus(message.input.projectId);
       } else if (kind === "planning") {
         await this.#authorizePlanning(message.userId, message.input);
         result = await this.sessions.planProject(message.input.sessionId, message.input.projectId);

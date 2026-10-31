@@ -1,5 +1,6 @@
 import { MODULE_ID, STATE_SETTING } from "../constants.mjs";
 import { createSession } from "../domain/session.mjs";
+import { normalizePresenceFocus } from "../domain/presence-focus.mjs";
 
 const emptyState = () => ({
   schemaVersion: 1,
@@ -49,6 +50,7 @@ export class ProjectRepository {
     for (const project of Object.values(state.projects ?? {})) {
       if (dropWaiveLocation(project)) changed = true;
     }
+    if (normalizePresenceFocus(state.projects)) changed = true;
     for (const [id, session] of Object.entries(state.sessions ?? {})) {
       if (!session?.name || !Array.isArray(session.participants) || !session.participants.length) continue;
       if (session.status !== "draft" && session.status !== "upcoming") continue;

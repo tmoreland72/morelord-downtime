@@ -44,7 +44,7 @@ export function presenceAllows(project, session) {
 export function elapsedDayApplies(project, { session = null, sessionDaysBlocked = false } = {}) {
   const policy = xgePolicy(project?.activityType);
   if (policy === "away") return true;
-  if (policy === "present") return !sessionDaysBlocked && presenceAllows(project, session);
+  if (policy === "present") return !sessionDaysBlocked && project.presenceFocus === true && presenceAllows(project, session);
   return !sessionDaysBlocked;
 }
 

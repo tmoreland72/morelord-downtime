@@ -41,7 +41,7 @@ export function projectTypeEntries() {
       "7 days.",
       "No gold.",
       "The player chooses Religion or Persuasion. One check, rolled from chat when the week ends.",
-      "The Location must have a Temple. The week advances only while an active Session is at that Location, the character is a participant, and Religious Service is enabled. It does not advance while the character is away.",
+      "The Location must have a Temple. The week advances only while an active Session is at that Location, the character is a participant, and Religious Service is enabled. It does not advance while the character is away. Only one of this character's presence projects is Active. Advance Day credits that Active project. The first one is Active on its own. A later one stays Inactive until the owner or the GM makes it Active.",
       "10 or less grants no favor. 11 to 20 grants one favor. 21 or more grants two favors.",
       "A 10% chance, on a d100 roll of 1 to 10. The complication is a short note for the GM."
     ]),
@@ -50,7 +50,7 @@ export function projectTypeEntries() {
       "7 days.",
       "Lower class is 10 gp, middle class is 50 gp, and upper class is 250 gp. Upper class also needs a GM to confirm access to the local nobility. The gold is taken from the character when the project starts.",
       "One Persuasion check, rolled from chat when the week ends.",
-      "Any Location. The week advances only while an active Session is at the project's Location, the character is a participant, and Carousing is enabled. It does not advance while the character is away.",
+      "Any Location. The week advances only while an active Session is at the project's Location, the character is a participant, and Carousing is enabled. It does not advance while the character is away. Only one of this character's presence projects is Active. Advance Day credits that Active project. The first one is Active on its own. A later one stays Inactive until the owner or the GM makes it Active.",
       "5 or less adds one hostile contact. 6 to 10 adds none. 11 to 15 adds one allied contact. 16 to 20 adds two. 21 or more adds three.",
       "A 10% chance, on a d100 roll of 1 to 10. The complication is a short note for the GM."
     ]),
@@ -59,7 +59,7 @@ export function projectTypeEntries() {
       "7 days.",
       "25 gp, taken from the character when the project starts.",
       "The player picks DC 10, 15, 20, or 25. Three checks use that DC: Stealth, Thieves' Tools, and one of Investigation, Perception, or Deception.",
-      "Any Location. The week advances only while an active Session is at the project's Location, the character is a participant, and Crime is enabled. It does not advance while the character is away.",
+      "Any Location. The week advances only while an active Session is at the project's Location, the character is a participant, and Crime is enabled. It does not advance while the character is away. Only one of this character's presence projects is Active. Advance Day credits that Active project. The first one is Active on its own. A later one stays Inactive until the owner or the GM makes it Active.",
       "The chosen DC pays 50, 100, 200, or 1,000 gp. No successes: the fine equals that amount, and the jail term is that amount divided by 25 weeks, recorded for the GM. One success: no loot. Two successes: half the loot, rounded down. Three successes: the full loot.",
       "Only on exactly one success. Zero successes and two or three successes do not roll a complication."
     ]),
@@ -68,7 +68,7 @@ export function projectTypeEntries() {
       "7 days.",
       "A whole number of gp from 10 to 1,000. A higher stake needs a GM. The stake is taken from the character when the project starts.",
       "Insight, Deception, and Intimidation. A dice set or a card set can replace one of them. Each DC is 5 plus 2d10, set when that check is requested.",
-      "Any Location. The week advances only while an active Session is at the project's Location, the character is a participant, and Gambling is enabled. It does not advance while the character is away.",
+      "Any Location. The week advances only while an active Session is at the project's Location, the character is a participant, and Gambling is enabled. It does not advance while the character is away. Only one of this character's presence projects is Active. Advance Day credits that Active project. The first one is Active on its own. A later one stays Inactive until the owner or the GM makes it Active.",
       "No successes: a debt equal to the stake, collected up to the cash on hand. One success: half the stake, rounded down, is returned. Two successes: the stake plus half the stake, rounded down, is paid. Three successes: double the stake is paid.",
       "A 10% chance, on a d100 roll of 1 to 10. The complication is a short note for the GM."
     ]),
@@ -77,7 +77,7 @@ export function projectTypeEntries() {
       "7 days.",
       "No gold to enter.",
       "Athletics, Acrobatics, and Constitution. A weapon attack can replace one of them. Constitution is an ability check plus one roll of the largest class Hit Die, or a d8 when the character has none. Each DC is 5 plus 2d10.",
-      "Any Location. The week advances only while an active Session is at the project's Location, the character is a participant, and Pit Fighting is enabled. It does not advance while the character is away.",
+      "Any Location. The week advances only while an active Session is at the project's Location, the character is a participant, and Pit Fighting is enabled. It does not advance while the character is away. Only one of this character's presence projects is Active. Advance Day credits that Active project. The first one is Active on its own. A later one stays Inactive until the owner or the GM makes it Active.",
       "The purse is 0, 50, 100, or 200 gp for zero, one, two, or three successes.",
       "A 10% chance, on a d100 roll of 1 to 10. The complication is a short note for the GM."
     ]),

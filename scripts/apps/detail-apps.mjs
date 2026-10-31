@@ -7,6 +7,7 @@ import { getModuleApi } from "../integrations/core-api.mjs";
 import { formatHistory } from "../ui/history.mjs";
 import { sessionSpends } from "../ui/session-spends.mjs";
 import { PERSUASION_PRICE_TIERS, formatPriceAdjustment, sourceItemCollectionNotice } from "../activities/source-item/source-item-activity.mjs";
+import { isPresenceProject } from "../domain/presence-focus.mjs";
 
 class DetailApplication extends LiveDowntimeApplication {}
 
@@ -72,6 +73,7 @@ export class ProjectDetailApp extends DetailApplication {
       allocate: ProjectDetailApp.allocate,
       planProject: ProjectDetailApp.planProject,
       negotiateSourceItem: ProjectDetailApp.negotiateSourceItem,
+      setPresenceFocus: ProjectDetailApp.setPresenceFocus,
       openSourceItem: ProjectDetailApp.openSourceItem,
       openResearchRecipe: ProjectDetailApp.openResearchRecipe,
       collectCommission: ProjectDetailApp.collectCommission
@@ -130,6 +132,10 @@ export class ProjectDetailApp extends DetailApplication {
         elapsedLabel: `${elapsed.completedDays} / ${elapsed.requiredDays} days`,
         usesEffort: ["effort", "hybrid"].includes(project.progress.mode),
         usesElapsed: ["elapsed", "hybrid"].includes(project.progress.mode),
+        presenceTracked: isPresenceProject(project),
+        presenceFocus: project.presenceFocus === true,
+        presenceLabel: project.presenceFocus === true ? "Active" : "Inactive",
+        canSetPresenceFocus: isPresenceProject(project) && project.presenceFocus !== true && canManage,
         canPlan: Boolean(upcomingSession && ["effort", "hybrid"].includes(project.progress.mode) && !upcomingSession.plannedProjectIds.includes(project.id) && canManage),
         plannedSessionId: upcomingSession?.id ?? null,
         canAllocate: Boolean(allocationPool && ["effort", "hybrid"].includes(project.progress.mode) && effortRemaining > 0 && canManage),
@@ -163,6 +169,19 @@ export class ProjectDetailApp extends DetailApplication {
         history: await formatHistory(project.history, this.constructor.services, project)
       }
     };
+  }
+
+  static async setPresenceFocus(event, target) {
+    event.preventDefault();
+    target.disabled = true;
+    try {
+      await this.constructor.services.allocationAuthority.setPresenceFocus(this.projectId);
+      ui.notifications.info("This project is now Active.");
+      await this.render({ force: true });
+    } catch (error) {
+      ui.notifications.error(error.message);
+      target.disabled = false;
+    }
   }
 
   static async allocate(event, target) {
