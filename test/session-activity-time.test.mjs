@@ -52,7 +52,7 @@ test("Available Activities includes Source Item and Crafting, and omits Commissi
   assert.match(source, /name: "Training"/);
 });
 
-test("Advance Day spends eight Session hours for a Source Item day only when that activity is enabled", async () => {
+test("Advance Day spends eight Session hours for every participant, and a Source Item day counts as those hours", async () => {
   const hidden = world();
   const hiddenStart = await activeSession(hidden.sessions, ["training"]);
   const hiddenProjects = new ProjectService({ repository: hidden.repository, now: () => 500 });
@@ -65,7 +65,7 @@ test("Advance Day spends eight Session hours for a Source Item day only when tha
     weeks: 1
   }, { idFactory: () => "cloak", now: () => 1 }));
   await hiddenProjects.advanceDay({ idempotencyKey: "hidden-day" });
-  assert.equal((await hidden.repository.read()).segments[hiddenStart.segment.id].participants[0].allocatedHours, 0);
+  assert.equal((await hidden.repository.read()).segments[hiddenStart.segment.id].participants[0].allocatedHours, 8);
   assert.equal((await hiddenProjects.get("cloak")).progress.elapsed.completedDays, 1);
 
   const allowed = world();
@@ -226,6 +226,73 @@ test("session history names commissioning and sourcing without internal ids", as
   assert.equal(rows[1].details, "Aric spent 8 hours commissioning Plate Armor.");
   assert.equal(rows[0].details, "Aric spent 8 hours sourcing Cloak of Protection.");
   assert.equal(rows.some(row => row.details.includes("project-1") || row.details.includes("Actor.aric")), false);
+});
+
+test("Advance Day takes the remaining hours when fewer than 8 are left and does not charge a presence day twice", async () => {
+  let stored = null;
+  let sessionId = 0;
+  let segmentId = 0;
+  const repository = new ProjectRepository({
+    getState: async () => stored,
+    setState: async value => { stored = structuredClone(value); }
+  });
+  const sessions = new SessionService({
+    repository,
+    idFactory: () => `session-${++sessionId}`,
+    segmentIdFactory: () => `segment-${++segmentId}`,
+    now: () => 1_000
+  });
+  const projects = new ProjectService({ repository, now: () => 1_500 });
+  const started = await sessions.start((await sessions.create({
+    name: "Short Week",
+    locationId: "town",
+    days: 3,
+    plannedDurationHours: 10,
+    participants: [
+      { actorUuid: "Actor.darro", name: "Darro" },
+      { actorUuid: "Actor.mira", name: "Mira" }
+    ],
+    availableActivities: ["training", "carousing", "source-item"]
+  })).id);
+  const carouse = (await import("../scripts/activities/xge/xge-project.mjs")).buildXgeProject({
+    activityType: "carousing",
+    owner: { uuid: "Actor.darro", name: "Darro" },
+    locationId: "town",
+    socialClass: "lower",
+    npcNames: "Mira"
+  }, { location: { id: "town", capabilities: [] }, idFactory: () => "party", now: () => 1 }).project;
+  await projects.create(carouse);
+  await projects.advanceDay({ idempotencyKey: "day-1" });
+  let segment = (await repository.read()).segments[started.segment.id];
+  assert.equal(segment.participants.find(entry => entry.actorUuid === "Actor.darro").allocatedHours, 8);
+  assert.equal(segment.participants.find(entry => entry.actorUuid === "Actor.mira").allocatedHours, 8);
+  assert.equal(segment.allocations.filter(entry => entry.participantActorUuids.includes("Actor.darro") && entry.hours === 8).length, 1);
+  const session = await sessions.get(started.session.id);
+  const firstJournal = sessionJournal({ session, segments: [segment], projects: await projects.list() });
+  assert.equal(firstJournal.some(row => row.who === "Mira" && row.project === "Advance Day" && row.change === "Spent 8 hours"), true);
+  assert.equal(firstJournal.some(row => row.who === "Darro" && row.change === "Spent 8 hours"), true);
+  const time = sessionParticipantTime({ session, segments: [segment] });
+  assert.equal(time.find(row => row.name === "Darro").timeLabel, "1 / 3 days · 8 / 10 hours");
+  assert.equal(time.find(row => row.name === "Mira").timeLabel, "0 / 3 days · 8 / 10 hours");
+
+  await projects.advanceDay({ idempotencyKey: "day-2" });
+  segment = (await repository.read()).segments[started.segment.id];
+  assert.equal(segment.participants.every(entry => entry.allocatedHours === 10), true);
+  const second = sessionJournal({
+    session: await sessions.get(started.session.id),
+    segments: [segment],
+    projects: await projects.list()
+  });
+  assert.equal(second.filter(row => row.result === "Only 2 hours remained, so this day took 2 hours instead of 8.").length, 2);
+  await projects.advanceDay({ idempotencyKey: "day-3" });
+  segment = (await repository.read()).segments[started.segment.id];
+  assert.equal(segment.participants.every(entry => entry.allocatedHours === 10), true);
+  const third = sessionJournal({
+    session: await sessions.get(started.session.id),
+    segments: [segment],
+    projects: await projects.list()
+  });
+  assert.equal(third.filter(row => row.result === "No hours remained, so this day took none of the 8.").length, 2);
 });
 
 test("participant time counts instructor hours, crafting hours, and day-based days", () => {

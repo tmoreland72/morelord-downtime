@@ -176,7 +176,7 @@ test("Research and Relaxation advance with no Session, and the others wait for t
   assert.equal((await projects.get("party")).progress.elapsed.completedDays, 1);
   const segment = (await repository.read()).segments[started.segment.id];
   assert.equal(segment.allocations.some(entry => entry.projectId === "party" && entry.days === 1), true);
-  assert.equal(segment.participants[0].allocatedHours, 0);
+  assert.equal(segment.participants[0].allocatedHours, 8);
 
   const moved = await repository.read();
   moved.sessions[started.session.id].locationId = "road";

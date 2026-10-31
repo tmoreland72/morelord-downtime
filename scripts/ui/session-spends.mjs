@@ -73,8 +73,10 @@ export function sessionJournal({ session, segments = [], projects = {}, activity
           order: 10,
           who: personName(actorUuid, segment, project),
           project: projectName,
-          change: `Spent ${amountLabel(allocation)}`,
-          result: ""
+          change: Number(allocation.hours) > 0 || Number(allocation.days) > 0
+            ? `Spent ${amountLabel(allocation)}`
+            : "Spent no Session hours",
+          result: allocation.note || ""
         }));
       }
     }
