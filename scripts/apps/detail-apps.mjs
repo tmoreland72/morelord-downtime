@@ -41,6 +41,8 @@ export class SessionDetailApp extends DetailApplication {
       })),
       session: {
         ...session,
+        statusLabel: { pending: "Pending", active: "Active", finalized: "Finalized", cancelled: "Cancelled" }[session.status] ?? session.status,
+        daysLabel: session.days == null || session.days === "" ? "Not set" : `${session.daysUsed ?? 0} of ${session.days} used`,
         locationName: locations.find(location => location.id === session.locationId)?.name ?? "No Location",
         participantSummary: session.participants.map(entry => entry.name ?? entry.actorUuid).join(", "),
         activitySummary: session.availableActivities.map(id => this.constructor.services.activities.get(id)?.name ?? titleCase(id)).join(", ") || "No new Projects",
@@ -113,7 +115,7 @@ export class ProjectDetailApp extends DetailApplication {
       });
     const allocationPool = openPools.at(-1) ?? null;
     const requiredActors = new Set([project.owner.uuid, ...project.participants.map(participant => participant.actorUuid)]);
-    const upcomingSession = (await this.constructor.services.sessions.list({ status: "upcoming", participantActorUuid: project.owner.uuid }))
+    const upcomingSession = (await this.constructor.services.sessions.list({ status: "pending", participantActorUuid: project.owner.uuid }))
       .find(session => session.availableActivities.includes(project.activityType));
     const canManage = game.user.isGM || ownedActorUuids.has(project.owner.uuid);
     const sourcingSession = sourceItem && game.user.isGM

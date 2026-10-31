@@ -31,7 +31,6 @@ export async function runCraftTimeTests() {
           participants: [{ actorUuid: actor.uuid, name: actor.name }],
           availableActivities: ["crafting"]
         });
-        await api.sessions.publish(created.id);
         await api.sessions.start(created.id);
         sessionId = created.id;
       }

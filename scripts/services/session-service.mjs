@@ -30,12 +30,36 @@ export class SessionService {
     const state = await this.repository.read();
     const existing = state.sessions[String(id)];
     if (!existing) throw new Error("Session not found.");
-    if (!["draft", "upcoming", "active"].includes(existing.status)) throw new Error("Only open Sessions can be edited.");
+    if (!["pending", "active"].includes(existing.status)) throw new Error("Only open Sessions can be edited.");
+    const incoming = structuredClone(changes);
+    const daysProvided = Object.hasOwn(incoming, "days");
+    const hoursProvided = Object.hasOwn(incoming, "plannedDurationHours")
+      && incoming.plannedDurationHours !== ""
+      && incoming.plannedDurationHours != null;
+    let nextDays = existing.days ?? null;
+    if (daysProvided) {
+      if (incoming.days === "" || incoming.days == null) nextDays = null;
+      else {
+        const parsed = Number(incoming.days);
+        if (!Number.isInteger(parsed) || parsed < 1) throw new Error("Days must be a whole number of at least 1.");
+        nextDays = parsed;
+      }
+    }
+    let nextHours = existing.plannedDurationHours;
+    if (hoursProvided) {
+      nextHours = Number(incoming.plannedDurationHours);
+      if (!Number.isFinite(nextHours) || nextHours <= 0) throw new Error("Hours must be greater than 0.");
+    } else if (daysProvided && nextDays != null && nextDays !== Number(existing.days)) {
+      nextHours = nextDays * 8;
+    }
     const session = createSession({
       ...existing,
-      ...structuredClone(changes),
+      ...incoming,
       id: existing.id,
       status: existing.status,
+      days: nextDays,
+      daysUsed: existing.daysUsed ?? 0,
+      plannedDurationHours: nextHours,
       createdAt: existing.createdAt,
       publishedAt: existing.publishedAt,
       history: existing.history
@@ -59,7 +83,6 @@ export class SessionService {
     await this.repository.write(state);
     return structuredClone(session);
   }
-  async publish(id) { return this.#transition(id, "upcoming"); }
   async cancel(id) {
     this.#requireGm();
     const state = await this.repository.read();
@@ -82,7 +105,7 @@ export class SessionService {
     const state = await this.repository.read();
     const session = state.sessions[String(id)];
     if (!session) return false;
-    if (!["draft", "cancelled"].includes(session.status)) throw new Error("Only a draft or cancelled Session can be deleted.");
+    if (!["pending", "cancelled"].includes(session.status)) throw new Error("Only a Pending or cancelled Session can be deleted.");
     const related = session.segmentIds.map(segmentId => state.segments[segmentId]).filter(Boolean);
     const hasActions = related.some(segment => segment.allocations.length > 0 || segment.participants.some(participant => participant.allocatedHours > 0));
     if (hasActions) throw new Error("A Session with recorded allocations cannot be deleted.");
@@ -97,7 +120,7 @@ export class SessionService {
     const session = state.sessions[String(id)];
     const project = state.projects[String(projectId)];
     if (!session || !project) throw new Error("Session or Project not found.");
-    if (session.status !== "upcoming") throw new Error("Projects can only be planned for an upcoming Session.");
+    if (session.status !== "pending") throw new Error("Projects can only be planned for a Pending Session.");
     if (!session.availableActivities.includes(project.activityType)) throw new Error("This activity is not available in the Session.");
     if (!session.participants.some(entry => entry.actorUuid === project.owner.uuid)) throw new Error("The Project owner is not participating in the Session.");
     if (!session.plannedProjectIds.includes(project.id)) session.plannedProjectIds.push(project.id);
@@ -143,7 +166,7 @@ export class SessionService {
     const state = await this.repository.read();
     const existing = state.sessions[String(id)];
     if (!existing) throw new Error("Session not found.");
-    if (!["draft", "upcoming", "active"].includes(existing.status)) throw new Error("Segments can only be added while a Session is being prepared or is active.");
+    if (!["pending", "active"].includes(existing.status)) throw new Error("Segments can only be added while a Session is Pending or Active.");
     const allowedParticipants = new Map(existing.participants.map(entry => [entry.actorUuid, entry]));
     const requestedParticipants = raw.participants?.length ? raw.participants : existing.participants;
     const segment = createSegment({

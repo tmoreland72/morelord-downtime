@@ -426,6 +426,18 @@ export class SessionEditorApp extends DowntimeApplication {
     this.sessionId = options.sessionId ?? null;
   }
 
+  _onRender(context, options) {
+    super._onRender(context, options);
+    const days = this.element.querySelector('[name="days"]');
+    const hours = this.element.querySelector('[name="plannedDurationHours"]');
+    days?.addEventListener("input", () => {
+      const raw = days.value.trim();
+      if (!raw || !hours) return;
+      const count = Number(raw);
+      if (Number.isInteger(count) && count >= 1) hours.value = String(count * 8);
+    });
+  }
+
   async _prepareContext(options) {
     const session = this.sessionId ? await this.constructor.services.sessions.get(this.sessionId) : null;
     const participantIds = new Set(session?.participants.map(entry => entry.actorUuid) ?? []);
@@ -452,17 +464,24 @@ export class SessionEditorApp extends DowntimeApplication {
     target.disabled = true;
     try {
       const actorUuids = selectedCharacterUuids(form);
-      const plannedDurationHours = Number(form.get("plannedDurationHours") ?? 0);
+      const daysRaw = String(form.get("days") ?? "").trim();
+      const hoursRaw = String(form.get("plannedDurationHours") ?? "").trim();
+      const plannedDurationHours = Number(hoursRaw);
       const existing = this.sessionId ? await this.constructor.services.sessions.get(this.sessionId) : null;
       const unavailableActivities = (existing?.availableActivities ?? []).filter(id => this.constructor.services.activities.get(id)?.isAvailable() === false);
       if (!actorUuids.length) throw new Error("Select at least one participant.");
-      if (!Number.isFinite(plannedDurationHours) || plannedDurationHours <= 0) throw new Error("Planned duration must be greater than zero.");
+      if (!hoursRaw || !Number.isFinite(plannedDurationHours) || plannedDurationHours <= 0) throw new Error("Hours must be greater than 0.");
+      let days = null;
+      if (daysRaw) {
+        days = Number(daysRaw);
+        if (!Number.isInteger(days) || days < 1) throw new Error("Days must be a whole number of at least 1.");
+      }
       const data = {
         name: String(form.get("name") ?? "").trim(),
         description: String(form.get("description") ?? ""),
         gmNotes: String(form.get("gmNotes") ?? ""),
-        status: "draft",
         locationId: String(form.get("locationId") ?? "").trim() || null,
+        days,
         plannedDurationHours,
         availableActivities: [...new Set([...form.getAll("availableActivities").map(String), ...unavailableActivities])],
         participants: participantRecords(actorUuids)
@@ -470,7 +489,7 @@ export class SessionEditorApp extends DowntimeApplication {
       const session = this.sessionId
         ? await this.constructor.services.sessions.update(this.sessionId, data)
         : await this.constructor.services.sessions.create(data);
-      ui.notifications.info(`${session.name} ${this.sessionId ? "updated" : "saved as a draft"}.`);
+      ui.notifications.info(`${session.name} ${this.sessionId ? "updated" : "saved"}.`);
       await this.close();
       await this.constructor.services.onCreated?.(session);
     } catch (error) {

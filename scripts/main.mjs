@@ -438,7 +438,6 @@ Hooks.once("ready", () => {
       get: id => sessions.get(id),
       create: raw => sessions.create(raw),
       update: (id, changes) => sessions.update(id, changes),
-      publish: id => sessions.publish(id),
       planProject: (id, projectId) => sessions.planProject(id, projectId),
       start: id => sessions.start(id),
       addSegment: (id, raw) => sessions.addSegment(id, raw),

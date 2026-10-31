@@ -162,6 +162,16 @@ export class ProjectService {
     if (state.consumedDayKeys.includes(dayKey)) {
       return { advanced: false, duplicate: true, idempotencyKey: dayKey, projects: [] };
     }
+    const activeSession = Object.values(state.sessions).find(session => session?.status === "active") ?? null;
+    const dayLimit = activeSession?.days;
+    if (activeSession && dayLimit != null && dayLimit !== "") {
+      const days = Number(dayLimit);
+      if (Number.isInteger(days) && days >= 1) {
+        const used = Number(activeSession.daysUsed ?? 0);
+        if (used >= days) throw new Error("This Session has used all of its days. Hour-based work can continue until the Session is finalized.");
+        activeSession.daysUsed = used + 1;
+      }
+    }
     const changed = [];
     for (const [id, existing] of Object.entries(state.projects)) {
       let project = advanceElapsedDay(existing, { dayKey, at: this.now() });

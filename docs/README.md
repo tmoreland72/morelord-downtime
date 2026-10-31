@@ -23,10 +23,8 @@ The package has been submitted to Foundry for approval. Submission alone does no
 ## GM workflow
 
 1. Open **Manage Locations** to configure the shared Locations and capabilities your activities need. **Shared Locations** below explains which capabilities each activity uses.
-2. Create a Session with its Location, planned hours, participants, and permitted activities.
-3. Publish it as **Upcoming** so participants can review and plan their work.
-4. Start the Session to make time available. Review allocations and any decisions needing attention.
-5. Finalize after resolving remaining time and validation issues, or cancel the opportunity while retaining its record. Unfinished Projects remain available for later Sessions.
+2. Create a Session with its Location, participants, and permitted activities. **Days** is optional and starts blank. **Hours** is each character's allocatable time and starts at 40. Setting **Days** fills **Hours** with **Days** × 8, and **Hours** can then be changed. A Session can be 2 hours with no days, or 2 days with 20 hours. The Session is **Pending**, so participants can review it. Only a GM can edit **Days** and **Hours**.
+3. Start the Session to make **Hours** available. **Advance Day** applies one day to projects measured in days. Those projects are limited by **Days** only when **Days** is set. Hour allocations are limited by **Hours** and can continue until the GM finalizes the Session. Finalize when the Session should close, or cancel it while keeping its record. Unfinished Projects remain available for later Sessions. Saved sessions keep their hours and leave **Days** blank.
 
 Character choices include player-owned characters and character members of the primary party; ownership still controls player access. The primary active GM handles player requests, so a GM must be connected for those requests to complete.
 

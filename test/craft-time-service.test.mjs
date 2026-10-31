@@ -50,7 +50,6 @@ async function startSession(sessions, { hours = 8, actorUuid = "Actor.aric", nam
     participants: [{ actorUuid, name }],
     availableActivities: activities
   });
-  await sessions.publish(session.id);
   return sessions.start(session.id);
 }
 
@@ -286,7 +285,6 @@ test("a failed check during baseline still allocates its two hours for an ignore
     participants: [{ actorUuid: "Actor.darro", name: "Darro" }],
     availableActivities: ["crafting"]
   });
-  await sessions.publish(session.id);
   const started = await sessions.start(session.id);
   const actor = { id: "darro", uuid: "Actor.darro", name: "Darro", type: "character" };
   const service = new CraftTimeService({

@@ -52,7 +52,6 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
       editProject: DowntimeDashboardApp.editProject,
       ...projectManagementActions,
       editSession: DowntimeDashboardApp.editSession,
-      publishSession: DowntimeDashboardApp.publishSession,
       startSession: DowntimeDashboardApp.startSession,
       finalizeSession: DowntimeDashboardApp.finalizeSession,
       cancelSession: DowntimeDashboardApp.cancelSession,
@@ -92,7 +91,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
       || ownedActorUuids.has(project.owner.uuid)
       || isParticipant(project.participants));
     const visibleSessions = allSessions.filter(session => isGm
-      || (["upcoming", "active", "finalized", "cancelled"].includes(session.status) && isParticipant(session.participants)));
+      || (["pending", "active", "finalized", "cancelled"].includes(session.status) && isParticipant(session.participants)));
     const activeOpportunity = visibleSessions.find(session => session.status === "active") ?? null;
     const locationApi = locations?.() ?? null;
     const sceneId = game.user?.viewedScene || globalThis.canvas?.scene?.id || game.scenes?.current?.id || null;
@@ -162,12 +161,15 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
       locationName: locationRecords.find(location => location.id === session.locationId)?.name ?? "No Location",
       participantSummary: session.participants.map(entry => entry.name ?? entry.actorUuid).join(", "),
       activitySummary: session.availableActivities.map(id => activities.get(id)?.name ?? titleCase(id)).join(", ") || "No new activities",
-      canPublish: isGm && session.status === "draft",
-      canStart: isGm && session.status === "upcoming",
+      statusLabel: { pending: "Pending", active: "Active", finalized: "Finalized", cancelled: "Cancelled" }[session.status] ?? session.status,
+      timeLabel: session.days == null || session.days === ""
+        ? `${session.plannedDurationHours} hours`
+        : `${session.days} ${Number(session.days) === 1 ? "day" : "days"} · ${session.plannedDurationHours} hours`,
+      canStart: isGm && session.status === "pending",
       canFinalize: isGm && session.status === "active",
-      canEdit: isGm && ["draft", "upcoming", "active"].includes(session.status),
+      canEdit: isGm && ["pending", "active"].includes(session.status),
       isClosed: ["finalized", "cancelled"].includes(session.status),
-      canDelete: isGm && ["draft", "cancelled"].includes(session.status)
+      canDelete: isGm && ["pending", "cancelled"].includes(session.status)
         && !session.segmentIds.map(id => allSegments.find(segment => segment.id === id)).filter(Boolean)
           .some(segment => segment.allocations.length || segment.participants.some(participant => participant.allocatedHours > 0))
     }));
@@ -310,11 +312,6 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
     }
   }
 
-  static async publishSession(event, target) {
-    event.preventDefault();
-    await runSessionAction(this, target, id => this.constructor.services.sessions.publish(id), "Session published for player preview.");
-  }
-
   static async startSession(event, target) {
     event.preventDefault();
     await runSessionAction(this, target, id => this.constructor.services.sessions.start(id), "Downtime Session started.");
@@ -357,7 +354,7 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
     event.preventDefault();
     if (!requireSessionGm()) return;
     const row = target.closest("[data-session-id]");
-    const confirmed = await foundry.applications.api.DialogV2.confirm({ window: { title: "Delete Downtime Session" }, content: "<p>Delete this Session permanently? Only drafts or cancelled Sessions without allocations can be deleted.</p>", modal: true });
+    const confirmed = await foundry.applications.api.DialogV2.confirm({ window: { title: "Delete Downtime Session" }, content: "<p>Delete this Session permanently? Only Pending or cancelled Sessions without allocations can be deleted.</p>", modal: true });
     if (!confirmed) return;
     try {
       await this.constructor.services.sessions.removeUnused(row.dataset.sessionId);

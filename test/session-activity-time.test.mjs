@@ -33,7 +33,6 @@ async function activeSession(sessions, activities) {
     participants: [{ actorUuid: "Actor.aric", name: "Aric" }],
     availableActivities: activities
   });
-  await sessions.publish(session.id);
   return sessions.start(session.id);
 }
 
