@@ -34,8 +34,5 @@ export async function collectDebt(actor, amount, reason) {
 export async function clearExhaustion(actor) {
   const previous = readExhaustion(actor);
   await actor.update(exhaustionUpdate(actor));
-  if (previous > 0 && typeof actor.toggleStatusEffect === "function") {
-    await actor.toggleStatusEffect("exhaustion", { active: false });
-  }
   return previous;
 }

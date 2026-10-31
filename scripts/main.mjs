@@ -23,6 +23,7 @@ import { COMMISSION_ACTIVITY_ID, commissionSummary, createCommissionProject } fr
 import { addMorelordTool, getCoreApi, getCoreLocations, getModuleApi } from "./integrations/core-api.mjs";
 import { DOWNTIME_SCENE_TOOL } from "./integrations/downtime-scene-tool.mjs";
 import { SOURCE_ITEM_ACTIVITY_ID, createSourceItemProject, sourceItemSummary } from "./activities/source-item/source-item-activity.mjs";
+import { sourceItemApi as publicSourceItemApi } from "./activities/source-item/source-item-api.mjs";
 import { SOURCE_ITEM_PERSUASION_TYPE, SOURCE_ITEM_ROLL_TYPE, installSourceItemRollCards } from "./activities/source-item/source-item-roll-request.mjs";
 import { SourceItemResolutionService } from "./activities/source-item/source-item-resolution-service.mjs";
 import { SourceItemProjectApp } from "./apps/source-item-app.mjs";
@@ -465,10 +466,7 @@ Hooks.once("ready", () => {
     deletions: Object.freeze({ deleteProject: projectId => allocationAuthority.deleteProject(projectId) }),
     training: Object.freeze({ createProject: data => allocationAuthority.createTraining(data), canProgress: canProgressTraining }),
     research: Object.freeze({ createProject: data => allocationAuthority.createResearch(data) }),
-    sourceItem: Object.freeze({
-      createProject: data => allocationAuthority.createSourceItem(data),
-      negotiate: projectId => allocationAuthority.negotiateSourceItem(projectId)
-    }),
+    sourceItem: publicSourceItemApi(allocationAuthority),
     advanceDay: context => projects.advanceDay(context),
     craftTime: Object.freeze({
       reconcileActor: actor => craftTime.reconcileActor(actor)

@@ -42,6 +42,7 @@ The API is available at `game.modules.get("morelord-downtime").api` and `Morelor
 - `advanceDay({ idempotencyKey, source, metadata })`
 - Crafting time is recorded from Craftworks' published hours spent. While a Downtime Session is active and **Crafting** is one of its **Available Activities**, each new hour a participant spends crafting is allocated to that Session, including a failed check and a recipe that finishes without a check. `craftTime.reconcileActor(actor)` runs that update for one character.
 - **Source Item** is a Session activity beside Training and Crafting. **Commission** is not. **Advance Day** spends 8 hours of that character's Session time for each day a Source Item Project progresses, when the Session includes the character and **Source Item**. A commission day does not spend Session hours.
+- `sourceItem.createProject(data)` / `sourceItem.negotiate(projectId, roll)` — `negotiate` forwards the Persuasion roll
 - `locations.current()` / `locations.evaluate()` / `locations.open()`
 
 The Project, allocation, and first activity contracts support the dashboard and Session-allocation workflow.

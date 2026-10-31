@@ -60,7 +60,7 @@ export class SourceItemResolutionService {
   }
 
   async applyPersuasion(project, check, { messageId = null } = {}) {
-    const resolved = this.negotiate(project, check);
+    const resolved = await this.negotiate(project, check);
     const saved = await this.commit(resolved);
     await this.#postPersuasion(saved);
     await this.#completeRequest(messageId);

@@ -185,6 +185,24 @@ test("Research and Relaxation advance with no Session, and the others wait for t
   assert.equal((await projects.get("party")).progress.elapsed.completedDays, 1);
 });
 
+test("clearing Exhaustion does not toggle a status effect the update already removed", async () => {
+  let toggled = false;
+  const actor = {
+    name: "Aric",
+    system: { attributes: { exhaustion: 2 } },
+    update: async change => {
+      actor.system.attributes.exhaustion = change["system.attributes.exhaustion"];
+    },
+    toggleStatusEffect: async () => {
+      toggled = true;
+      throw new Error("undefined id [dnd5eexhaustion0] does not exist");
+    }
+  };
+  assert.equal(await clearExhaustion(actor), 2);
+  assert.equal(actor.system.attributes.exhaustion, 0);
+  assert.equal(toggled, false);
+});
+
 test("Relaxation clears every Exhaustion level when the week ends", async () => {
   let stored = null;
   const repository = new ProjectRepository({ getState: async () => stored, setState: async value => { stored = structuredClone(value); } });

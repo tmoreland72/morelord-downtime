@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createSourceItemProject } from "../scripts/activities/source-item/source-item-activity.mjs";
+import { sourceItemApi } from "../scripts/activities/source-item/source-item-api.mjs";
 import { SourceItemResolutionService } from "../scripts/activities/source-item/source-item-resolution-service.mjs";
 import {
   SOURCE_ITEM_ROLL_TYPE,
@@ -96,6 +97,53 @@ test("the chat Roll button opens the native skill dialog and applies that roll",
     if (value === undefined) delete globalThis[key];
     else globalThis[key] = value;
   }
+});
+
+test("applying Persuasion commits the negotiated Project and rejects a total that is not a number", async () => {
+  const previous = { ChatMessage: globalThis.ChatMessage, foundry: globalThis.foundry, game: globalThis.game };
+  globalThis.game = { messages: { get: () => null } };
+  globalThis.ChatMessage = { create: async () => {}, getSpeaker: () => ({}) };
+  globalThis.foundry = { applications: { handlebars: { renderTemplate: async () => "<p>persuasion</p>" } } };
+  const committed = [];
+  const service = new SourceItemResolutionService({
+    catalog: {},
+    commit: async project => {
+      if (project == null || typeof project.then === "function" || !project.id) throw new Error("Project not found.");
+      committed.push(project);
+      return project;
+    }
+  });
+  const project = createSourceItemProject(input, { idFactory: () => "source", now: () => 1 });
+  project.metadata.sourceItem.outcome = { success: true, targetPriceGp: 1000, alternatives: [] };
+  const saved = await service.applyPersuasion(project, { naturalRoll: 15, skillModifier: 0 });
+  assert.equal(committed.length, 1);
+  assert.equal(committed[0].id, "source");
+  assert.equal(saved.metadata.sourceItem.persuasion.total, 15);
+  assert.equal(saved.metadata.sourceItem.outcome.targetPriceGp, 1100);
+  const untouched = structuredClone(project);
+  await assert.rejects(() => service.applyPersuasion(untouched, { naturalRoll: Number.NaN }), /not a number/);
+  assert.equal(untouched.metadata.sourceItem.outcome.targetPriceGp, 1000);
+  assert.equal(untouched.metadata.sourceItem.persuasion, null);
+  for (const [key, value] of Object.entries(previous)) {
+    if (value === undefined) delete globalThis[key];
+    else globalThis[key] = value;
+  }
+});
+
+test("public Source Item negotiate passes the roll through", async () => {
+  const calls = [];
+  const api = sourceItemApi({
+    createSourceItem: async () => null,
+    negotiateSourceItem: async (projectId, roll) => {
+      calls.push({ projectId, roll });
+      return { projectId, roll };
+    }
+  });
+  const roll = { naturalRoll: 12, skillModifier: 3 };
+  const result = await api.negotiate("source-1", roll);
+  assert.deepEqual(calls, [{ projectId: "source-1", roll }]);
+  assert.equal(result.roll.naturalRoll, 12);
+  assert.equal(result.roll.skillModifier, 3);
 });
 
 test("the success chat card names the pickup location and a blank location omits that line", async () => {

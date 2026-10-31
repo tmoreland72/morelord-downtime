@@ -98,6 +98,9 @@ test("Persuasion tiers are graded against the sourcing DC and stay within +10% a
   assert.equal(lowered.metadata.sourceItem.persuasion.adjustment, -0.25);
   assert.equal(lowered.metadata.sourceItem.outcome.alternatives[0].priceGp, 750);
   assert.throws(() => applySourceItemPersuasion(raised, { naturalRoll: 20, skillModifier: 15 }), /already been attempted/);
+  assert.throws(() => persuasionPriceAdjustment(Number.NaN, dc), /not a number/);
+  assert.throws(() => applySourceItemPersuasion(structuredClone(project), { naturalRoll: Number.NaN, skillModifier: 0 }), /not a number/);
+  assert.equal(project.metadata.sourceItem.outcome.alternatives[0].priceGp, 1000);
 });
 
 test("rarity price formulas follow the sourcing table", () => {

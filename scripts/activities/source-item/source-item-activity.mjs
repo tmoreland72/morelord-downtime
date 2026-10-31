@@ -28,7 +28,10 @@ export const PERSUASION_PRICE_TIERS = Object.freeze([
 ]);
 
 export function persuasionPriceTier(total, dc) {
-  const margin = Number(total) - Number(dc);
+  const score = Number(total);
+  const difficulty = Number(dc);
+  if (!Number.isFinite(score) || !Number.isFinite(difficulty)) throw new Error("The Persuasion total is not a number.");
+  const margin = score - difficulty;
   return PERSUASION_PRICE_TIERS.find(tier => tier.applies(margin)) ?? PERSUASION_PRICE_TIERS.at(-1);
 }
 
