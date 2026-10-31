@@ -1,5 +1,5 @@
-import { applySourceItemPersuasion, resolveSourceItemProject, sourceItemPriceFormula } from "./source-item-activity.mjs";
-import { sourceItemRollCard } from "./source-item-roll-request.mjs";
+import { applySourceItemPersuasion, formatPriceAdjustment, resolveSourceItemProject, sourceItemPriceFormula } from "./source-item-activity.mjs";
+import { sourceItemPersuasionCard, sourceItemRollCard } from "./source-item-roll-request.mjs";
 import { completeChatRoll } from "../../../../morelord-core/scripts/services/chat-roll-requests.js";
 
 export class SourceItemResolutionService {
@@ -20,6 +20,18 @@ export class SourceItemResolutionService {
     return pending;
   }
 
+  async requestPersuasion(project) {
+    const sourceItem = project.metadata?.sourceItem;
+    if (!sourceItem?.outcome) throw new Error("The sourcing result has not been revealed.");
+    if (sourceItem.persuasion) throw new Error("Persuasion has already been attempted for this offer.");
+    const requests = this.getRequests();
+    if (typeof requests?.create !== "function") throw new Error("Morelord Core roll requests are unavailable. Update and enable Morelord Core.");
+    await requests.create(sourceItemPersuasionCard(project));
+    const pending = structuredClone(project);
+    pending.metadata.sourceItem.pendingPersuasion = true;
+    return this.commit(pending);
+  }
+
   async applyRoll(project, check, { messageId = null } = {}) {
     if (project.metadata?.sourceItem?.outcome) return project;
     const resolved = await resolveSourceItemProject(project, {
@@ -32,15 +44,26 @@ export class SourceItemResolutionService {
     resolved.metadata.sourceItem.pendingRoll = false;
     const saved = await this.commit(resolved);
     await this.#postResult(saved);
-    if (messageId && globalThis.game?.messages?.get) {
-      const message = game.messages.get(messageId);
-      if (message) await completeChatRoll(message, "");
-    }
+    await this.#completeRequest(messageId);
     return saved;
   }
 
+  async #completeRequest(messageId) {
+    if (!messageId || !globalThis.game?.messages?.get) return;
+    const message = game.messages.get(messageId);
+    if (message) await completeChatRoll(message, "");
+  }
+
   async negotiate(project, roll) {
-    return applySourceItemPersuasion(project, { naturalRoll: roll?.naturalRoll, skillModifier: roll?.rollModifier });
+    return applySourceItemPersuasion(project, { naturalRoll: roll?.naturalRoll, skillModifier: roll?.skillModifier ?? roll?.rollModifier });
+  }
+
+  async applyPersuasion(project, check, { messageId = null } = {}) {
+    const resolved = this.negotiate(project, check);
+    const saved = await this.commit(resolved);
+    await this.#postPersuasion(saved);
+    await this.#completeRequest(messageId);
+    return saved;
   }
 
   async #rollPrice(rarity) {
@@ -62,6 +85,24 @@ export class SourceItemResolutionService {
       success: sourceItem.outcome.success,
       total: sourceItem.outcome.total,
       dc: sourceItem.dc,
+      items: items.map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }))
+    });
+    await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ alias: project.owner.name ?? "Source Item" }), content });
+  }
+
+  async #postPersuasion(project) {
+    const sourceItem = project.metadata.sourceItem;
+    const persuasion = sourceItem.persuasion;
+    const items = sourceItem.outcome.success
+      ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
+      : sourceItem.outcome.alternatives;
+    const content = await foundry.applications.handlebars.renderTemplate("modules/morelord-downtime/templates/chat/source-item-persuasion.hbs", {
+      projectName: project.name,
+      ownerName: project.owner.name ?? "Character",
+      total: persuasion.total,
+      dc: persuasion.dc,
+      tierLabel: persuasion.tierLabel,
+      adjustmentLabel: formatPriceAdjustment(persuasion.adjustment),
       items: items.map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }))
     });
     await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ alias: project.owner.name ?? "Source Item" }), content });

@@ -14,6 +14,7 @@
 - Only a GM can change a Training project's **Required Hours (GM Adjustable)**. The field is read-only for players, and a player request that changes those hours is rejected.
 - Crafting time is read from the character's saved Craftworks jobs, so a successful craft and a failed attempt both add their spent hours to the active Downtime Session.
 - A finished Source Item search posts a roll request in chat. The owning player clicks **Roll** and makes the Arcana or Investigation check in the skill roll dialog. A GM can roll it when that player is offline. The sourcing result is unchanged.
+- The follow-up Persuasion check is the same kind of chat roll request. Compared with the sourcing DC, failing by 5 or more raises the price 10%, failing by 1 to 4 raises it 5%, meeting it or beating it by less than 5 leaves it unchanged, beating it by 5 to 9 lowers it 10%, beating it by 10 to 14 lowers it 20%, and beating it by 15 or more lowers it 25%. The chat result shows that adjustment.
 
 ## 0.2.1
 

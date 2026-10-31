@@ -135,7 +135,16 @@ Requires Marketplace. Select a Common through Legendary magic item from the char
 
 When the weeks are finished, Downtime posts a **Source Item** roll request in chat for the owning player. Clicking **Roll** opens the normal skill roll dialog for Arcana or Investigation. The player makes that roll. A GM can click it when that player is offline. The same sourcing result is then revealed. The investment bonus is added to the roll.
 
-**Source Item** is also an **Available Activities** choice, checked per Session, like Crafting. On an active Session that includes it, the GM uses **Log Sourcing Time** to record hours a participant spent looking for an item. The same control is on an open Source Item Project. Those hours are added to that character's allocated Session time. A day advanced on the Project does not itself spend Session hours, and time logged while Source Item is not enabled is not applied later. Completion reveals an offer for the requested item or 1d4 Marketplace alternatives of the same or lower rarity. One unassisted Persuasion check can adjust offer prices. The initial investment is not refunded if the search fails; later edits can add investment or weeks but cannot reduce or redirect the committed investment.
+**Source Item** is also an **Available Activities** choice, checked per Session, like Crafting. On an active Session that includes it, the GM uses **Log Sourcing Time** to record hours a participant spent looking for an item. The same control is on an open Source Item Project. Those hours are added to that character's allocated Session time. A day advanced on the Project does not itself spend Session hours, and time logged while Source Item is not enabled is not applied later. Completion reveals an offer for the requested item or 1d4 Marketplace alternatives of the same or lower rarity. **Request Persuasion Roll** posts a chat roll request. The owning player clicks **Roll** and makes a Persuasion check in the skill roll dialog. A GM can roll it when that player is offline. The roll is compared with the sourcing DC:
+
+- Fail by 5 or more: price +10%
+- Fail by 1 to 4: price +5%
+- Meet the DC, or beat it by 1 to 4: no change
+- Beat the DC by 5 to 9: price −10%
+- Beat the DC by 10 to 14: price −20%
+- Beat the DC by 15 or more: price −25%
+
+A poor roll cannot raise the price by more than 10%. A good roll cannot lower it by more than 25%. The chat result names the tier and the adjustment. The same table is on the Source Item Project after the search resolves. The initial investment is not refunded if the search fails; later edits can add investment or weeks but cannot reduce or redirect the committed investment.
 
 ### Crafting
 

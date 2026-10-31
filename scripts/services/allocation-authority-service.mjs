@@ -76,6 +76,18 @@ export class AllocationAuthorityService {
     return this.#request("sourceItemRoll", input);
   }
 
+  async requestSourceItemPersuasion(projectId) {
+    const input = { projectId: String(projectId) };
+    if (game.user.isGM) return this.getSourceItem().requestPersuasion(input.projectId);
+    return this.#request("sourceItemPersuasionRequest", input);
+  }
+
+  async applySourceItemPersuasion(projectId, roll, messageId = null) {
+    const input = { projectId: String(projectId), roll, messageId };
+    if (game.user.isGM) return this.getSourceItem().applyPersuasion(input.projectId, input.roll, { messageId: input.messageId });
+    return this.#request("sourceItemPersuasionRoll", input);
+  }
+
   async planProject(sessionId, projectId) {
     const input = { sessionId: String(sessionId), projectId: String(projectId) };
     if (game.user.isGM) return this.sessions.planProject(input.sessionId, input.projectId);
@@ -164,6 +176,12 @@ export class AllocationAuthorityService {
       } else if (kind === "sourceItemRoll") {
         await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
         result = await this.getSourceItem().applyRoll(message.input.projectId, message.input.roll, { messageId: message.input.messageId });
+      } else if (kind === "sourceItemPersuasionRequest") {
+        await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
+        result = await this.getSourceItem().requestPersuasion(message.input.projectId);
+      } else if (kind === "sourceItemPersuasionRoll") {
+        await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
+        result = await this.getSourceItem().applyPersuasion(message.input.projectId, message.input.roll, { messageId: message.input.messageId });
       } else if (kind === "planning") {
         await this.#authorizePlanning(message.userId, message.input);
         result = await this.sessions.planProject(message.input.sessionId, message.input.projectId);

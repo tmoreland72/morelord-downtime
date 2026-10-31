@@ -24,7 +24,7 @@ import { COMMISSION_ACTIVITY_ID, commissionSummary, createCommissionProject } fr
 import { addMorelordTool, getCoreApi, getCoreLocations, getModuleApi } from "./integrations/core-api.mjs";
 import { DOWNTIME_SCENE_TOOL } from "./integrations/downtime-scene-tool.mjs";
 import { SOURCE_ITEM_ACTIVITY_ID, createSourceItemProject, sourceItemSummary } from "./activities/source-item/source-item-activity.mjs";
-import { SOURCE_ITEM_ROLL_TYPE, installSourceItemRollCards } from "./activities/source-item/source-item-roll-request.mjs";
+import { SOURCE_ITEM_PERSUASION_TYPE, SOURCE_ITEM_ROLL_TYPE, installSourceItemRollCards } from "./activities/source-item/source-item-roll-request.mjs";
 import { SourceItemResolutionService } from "./activities/source-item/source-item-resolution-service.mjs";
 import { SourceItemProjectApp } from "./apps/source-item-app.mjs";
 import { MarketplaceSourcingAdapter } from "./adapters/marketplace-sourcing-adapter.mjs";
@@ -320,15 +320,28 @@ Hooks.once("ready", () => {
       const existing = await projects.get(id);
       if (!existing || existing.activityType !== SOURCE_ITEM_ACTIVITY_ID) throw new Error("Source Item Project not found.");
       return sourceItemResolution.applyRoll(existing, roll, options);
+    },
+    requestPersuasion: async id => {
+      const existing = await projects.get(id);
+      if (!existing || existing.activityType !== SOURCE_ITEM_ACTIVITY_ID) throw new Error("Source Item Project not found.");
+      return sourceItemResolution.requestPersuasion(existing);
+    },
+    applyPersuasion: async (id, roll, options) => {
+      const existing = await projects.get(id);
+      if (!existing || existing.activityType !== SOURCE_ITEM_ACTIVITY_ID) throw new Error("Source Item Project not found.");
+      return sourceItemResolution.applyPersuasion(existing, roll, options);
     }
   });
   sourceItemApi = sourceItem;
   const sourceItemRequests = getCoreApi()?.chatRequests;
-  sourceItemRequests?.register?.(SOURCE_ITEM_ROLL_TYPE, async () => ({ accepted: false, reason: "Roll this skill check from the dialog." }));
+  const declineAutomaticRoll = async () => ({ accepted: false, reason: "Roll this skill check from the dialog." });
+  sourceItemRequests?.register?.(SOURCE_ITEM_ROLL_TYPE, declineAutomaticRoll);
+  sourceItemRequests?.register?.(SOURCE_ITEM_PERSUASION_TYPE, declineAutomaticRoll);
   installSourceItemRollCards({
     hooks: Hooks,
     rollSkill: (actor, skill, options) => getCoreApi()?.rolls?.skill(actor, skill, options),
-    applyRoll: (projectId, roll, options) => allocationAuthority.applySourceItemRoll(projectId, roll, options?.messageId)
+    applyRoll: (projectId, roll, options) => allocationAuthority.applySourceItemRoll(projectId, roll, options?.messageId),
+    applyPersuasion: (projectId, roll, options) => allocationAuthority.applySourceItemPersuasion(projectId, roll, options?.messageId)
   });
   allocationAuthority.start();
   DowntimeDashboardApp.configure({ projects, segments, sessions, allocationAuthority, locations: coreLocations, training, activities, craftworksProjects });

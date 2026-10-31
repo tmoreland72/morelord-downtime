@@ -2,9 +2,9 @@ import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-par
 import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { titleCase } from "../ui/formatting.mjs";
-import { getCoreApi, getModuleApi } from "../integrations/core-api.mjs";
+import { getModuleApi } from "../integrations/core-api.mjs";
 import { formatHistory } from "../ui/history.mjs";
-import { SOURCE_ITEM_ACTIVITY_ID } from "../activities/source-item/source-item-activity.mjs";
+import { PERSUASION_PRICE_TIERS, SOURCE_ITEM_ACTIVITY_ID, formatPriceAdjustment } from "../activities/source-item/source-item-activity.mjs";
 
 class DetailApplication extends LiveDowntimeApplication {}
 
@@ -161,8 +161,9 @@ export class ProjectDetailApp extends DetailApplication {
           checkLabel: sourceItem.checkSkill === "inv" ? "Investigation" : "Arcana",
           targetPriceLabel: sourceItem.outcome?.targetPriceGp == null ? null : `${sourceItem.outcome.targetPriceGp.toLocaleString()} gp`,
           alternatives: (sourceItem.outcome?.alternatives ?? []).map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` })),
-          persuasionLabel: sourceItem.persuasion ? `${sourceItem.persuasion.total} (${sourceItem.persuasion.adjustment > 0 ? "+" : ""}${Math.round(sourceItem.persuasion.adjustment * 100)}%)` : null,
-          canNegotiate: Boolean(sourceItem.outcome && !sourceItem.persuasion && canManage)
+          persuasionLabel: sourceItem.persuasion ? `${sourceItem.persuasion.total} vs DC ${sourceItem.persuasion.dc ?? sourceItem.dc}: ${sourceItem.persuasion.tierLabel} (${formatPriceAdjustment(sourceItem.persuasion.adjustment)})` : null,
+          persuasionTiers: PERSUASION_PRICE_TIERS.map(tier => ({ label: tier.label, adjustmentLabel: formatPriceAdjustment(tier.adjustment) })),
+          canNegotiate: Boolean(sourceItem.outcome && !sourceItem.persuasion && !sourceItem.pendingPersuasion && canManage)
         } : null,
         canLogSourcing: Boolean(sourcingSession && !sourceItem?.outcome),
         history: await formatHistory(project.history, this.constructor.services, project)
@@ -228,15 +229,11 @@ export class ProjectDetailApp extends DetailApplication {
     event.preventDefault();
     target.disabled = true;
     try {
-      const project = await this.constructor.services.projects.get(this.projectId);
-      const result = await getCoreApi().rolls.skill(await fromUuid(project.owner.uuid), "per", { flavor: `${project.name} — Persuasion` });
-      if (result.cancelled) throw new Error("The Persuasion check was cancelled.");
-      const roll = { naturalRoll: result.naturalD20, total: result.total, rollModifier: result.total - result.naturalD20 };
-      await this.constructor.services.allocationAuthority.negotiateSourceItem(this.projectId, roll);
-      ui.notifications.info("Persuasion resolved and offer prices updated.");
+      await this.constructor.services.allocationAuthority.requestSourceItemPersuasion(this.projectId);
+      ui.notifications.info("Persuasion roll requested in chat.");
       await this.render({ force: true });
     } catch (error) {
-      ui.notifications.error(`Could not negotiate the offer: ${error.message}`);
+      ui.notifications.error(`Could not request the Persuasion roll: ${error.message}`);
     } finally { target.disabled = false; }
   }
 

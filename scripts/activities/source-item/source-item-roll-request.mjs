@@ -1,6 +1,7 @@
 import { canRollForActor, submitChatRoll } from "../../../../morelord-core/scripts/services/chat-roll-requests.js";
 
 export const SOURCE_ITEM_ROLL_TYPE = "downtime.source-item";
+export const SOURCE_ITEM_PERSUASION_TYPE = "downtime.source-item-persuasion";
 
 export function sourceItemSkillLabel(skill) {
   return skill === "inv" ? "Investigation" : "Arcana";
@@ -22,6 +23,20 @@ export function sourceItemRollCard(project) {
   };
 }
 
+export function sourceItemPersuasionCard(project) {
+  const dc = Number(project?.metadata?.sourceItem?.dc);
+  return {
+    type: SOURCE_ITEM_PERSUASION_TYPE,
+    key: `source-item-persuasion:${project.id}`,
+    title: "Source Item · Persuasion",
+    actorUuid: project.owner?.uuid ?? null,
+    dc: Number.isFinite(dc) ? dc : null,
+    modes: false,
+    actionLabel: "Roll",
+    data: { projectId: project.id, skill: "per", title: "Source Item · Persuasion" }
+  };
+}
+
 /** Map a native skill-roll result onto the sourcing check. Cancelled rolls return null. */
 export function skillCheckFromRoll(roll) {
   if (!roll || roll.cancelled) return null;
@@ -35,10 +50,14 @@ export function skillCheckFromRoll(roll) {
  * The card is Core's shared roll request. Clicking Roll opens the dnd5e skill dialog
  * on this client, for the owning player or for a GM when that player is offline.
  */
-export function installSourceItemRollCards({ hooks, rollSkill, applyRoll, fromUuid = globalThis.fromUuid } = {}) {
+export function installSourceItemRollCards({ hooks, rollSkill, applyRoll, applyPersuasion = null, fromUuid = globalThis.fromUuid } = {}) {
+  const applyByType = {
+    [SOURCE_ITEM_ROLL_TYPE]: applyRoll,
+    [SOURCE_ITEM_PERSUASION_TYPE]: applyPersuasion
+  };
   hooks.on("renderChatMessageHTML", (message, html) => {
     const request = message.getFlag?.("morelord-core", "rollRequest");
-    const entry = request?.type === SOURCE_ITEM_ROLL_TYPE ? request : null;
+    const entry = applyByType[request?.type] ? request : null;
     if (!entry || html?.dataset?.sourceItemRollBound === "true") return;
     html.dataset.sourceItemRollBound = "true";
     html.addEventListener("click", event => {
@@ -57,8 +76,8 @@ export function installSourceItemRollCards({ hooks, rollSkill, applyRoll, fromUu
           flavor: entry.data?.title ?? entry.title
         });
         const check = skillCheckFromRoll(rolled);
-        if (!check) throw new Error("The sourcing roll was cancelled.");
-        await applyRoll(entry.data.projectId, check, { messageId: message.id });
+        if (!check) throw new Error("The skill roll was cancelled.");
+        await applyByType[entry.type](entry.data.projectId, check, { messageId: message.id });
       }).catch(error => {
         globalThis.ui?.notifications?.error?.(error.message);
       });

@@ -62,13 +62,31 @@ test("failed sourcing requests Marketplace alternatives and prices each offer", 
   assert.deepEqual(resolved.metadata.sourceItem.outcome.alternatives.map(item => item.priceGp), [300, 40]);
 });
 
-test("Persuasion bands adjust every revealed offer only once", () => {
+test("Persuasion tiers are graded against the sourcing DC and stay within +10% and -25%", () => {
+  const dc = 20;
+  const expectTier = (total, adjustment) => assert.equal(persuasionPriceAdjustment(total, dc), adjustment);
+  expectTier(15, 0.10);
+  expectTier(10, 0.10);
+  expectTier(16, 0.05);
+  expectTier(19, 0.05);
+  expectTier(20, 0);
+  expectTier(24, 0);
+  expectTier(25, -0.10);
+  expectTier(29, -0.10);
+  expectTier(30, -0.20);
+  expectTier(34, -0.20);
+  expectTier(35, -0.25);
+  expectTier(50, -0.25);
   const project = createSourceItemProject(input, { idFactory: () => "source", now: () => 1 });
   project.metadata.sourceItem.outcome = { success: false, targetPriceGp: null, alternatives: [{ name: "A", priceGp: 1000 }] };
-  const negotiated = applySourceItemPersuasion(project, { naturalRoll: 14, skillModifier: 4 });
-  assert.equal(persuasionPriceAdjustment(18), -0.20);
-  assert.equal(negotiated.metadata.sourceItem.outcome.alternatives[0].priceGp, 800);
-  assert.throws(() => applySourceItemPersuasion(negotiated, { naturalRoll: 20 }), /already been attempted/);
+  const raised = applySourceItemPersuasion(project, { naturalRoll: 8, skillModifier: 7 });
+  assert.equal(raised.metadata.sourceItem.persuasion.total, 15);
+  assert.equal(raised.metadata.sourceItem.persuasion.tierLabel, "Fail by 5 or more");
+  assert.equal(raised.metadata.sourceItem.outcome.alternatives[0].priceGp, 1100);
+  const lowered = applySourceItemPersuasion(structuredClone(project), { naturalRoll: 20, skillModifier: 15 });
+  assert.equal(lowered.metadata.sourceItem.persuasion.adjustment, -0.25);
+  assert.equal(lowered.metadata.sourceItem.outcome.alternatives[0].priceGp, 750);
+  assert.throws(() => applySourceItemPersuasion(raised, { naturalRoll: 20, skillModifier: 15 }), /already been attempted/);
 });
 
 test("rarity price formulas follow the sourcing table", () => {
