@@ -197,7 +197,7 @@ export class AllocationAuthorityService {
       } else if (kind === "xge") {
         await this.#authorizeOwnedActor(message.userId, message.input.owner?.uuid);
         const requesterIsGm = game.users.get(message.userId)?.isGM === true;
-        const input = requesterIsGm ? message.input : { ...message.input, nobilityAccess: false, waiveLocation: false, allowHighStake: false };
+        const input = requesterIsGm ? message.input : { ...message.input, nobilityAccess: false, allowHighStake: false };
         result = await this.getXge().createProject(input, { isGm: requesterIsGm });
       } else if (kind === "xgeRoll") {
         await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);

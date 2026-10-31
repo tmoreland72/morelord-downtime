@@ -40,6 +40,7 @@ test("gates, costs, and social class follow the book", () => {
   assert.throws(() => xgeCost("gambling", { stakeGp: 1001 }), /1,000 gp/);
   assert.equal(xgeCost("gambling", { stakeGp: 2000, allowHighStake: true }, { isGm: true }), 2000);
   assert.throws(() => buildXgeProject(base("religious-service", { skill: "rel" }), { location: town }), /Temple/);
+  assert.throws(() => buildXgeProject(base("religious-service", { skill: "rel", waiveLocation: true, metadata: { xge: { waiveLocation: true } } }), { isGm: true, location: town }), /Temple/);
   assert.equal(buildXgeProject(base("religious-service", { skill: "per", locationId: "chapel" }), { location: temple }).project.progress.elapsed.requiredDays, 7);
   assert.throws(() => buildXgeProject(base("lore-research", { skill: "his", question: "Who built the gate?" }), { location: town }), /Library/);
   assert.equal(buildXgeProject(base("lore-research", { skill: "his", question: "Who built the gate?", locationId: "stacks" }), { location: library }).costGp, 50);
@@ -50,6 +51,40 @@ test("gates, costs, and social class follow the book", () => {
   assert.throws(() => buildXgeProject(base("carousing", { socialClass: "upper", npcNames: "Lord" }), { location: town }), /nobility/);
   const upper = buildXgeProject(base("carousing", { socialClass: "upper", npcNames: "Lord", nobilityAccess: true }), { isGm: true, location: town });
   assert.equal(upper.costGp, 250);
+});
+
+test("a saved location waiver is dropped for every project type", async () => {
+  let stored = {
+    schemaVersion: 1,
+    projects: {
+      religious: { id: "religious", waiveLocation: true, metadata: { xge: { waiveLocation: true, costGp: 0 } } },
+      training: { id: "training", metadata: { training: { waiveLocation: true, proficiencyId: "dwarvish" } } },
+      source: { id: "source", metadata: { sourceItem: { waiveLocation: true } } },
+      craft: { id: "craft", metadata: { crafting: { waiveLocation: true } } },
+      commission: { id: "commission", metadata: { commission: { waiveLocation: true, itemName: "Rope" } } }
+    },
+    segments: {},
+    sessions: {},
+    consumedDayKeys: []
+  };
+  const repository = new ProjectRepository({ getState: async () => stored, setState: async value => { stored = value; } });
+  const state = await repository.read();
+  assert.equal(state.projects.religious.waiveLocation, undefined);
+  assert.equal(state.projects.religious.metadata.xge.waiveLocation, undefined);
+  assert.equal(state.projects.religious.metadata.xge.costGp, 0);
+  assert.equal(state.projects.training.metadata.training.waiveLocation, undefined);
+  assert.equal(state.projects.training.metadata.training.proficiencyId, "dwarvish");
+  assert.equal(state.projects.source.metadata.sourceItem.waiveLocation, undefined);
+  assert.equal(state.projects.craft.metadata.crafting.waiveLocation, undefined);
+  assert.equal(state.projects.commission.metadata.commission.waiveLocation, undefined);
+  assert.equal(state.projects.commission.metadata.commission.itemName, "Rope");
+  await repository.write(structuredClone(stored));
+  assert.equal(stored.projects.religious.metadata.xge.waiveLocation, undefined);
+  assert.equal(stored.projects.training.metadata.training.waiveLocation, undefined);
+  assert.equal(stored.projects.source.metadata.sourceItem.waiveLocation, undefined);
+  assert.equal(stored.projects.craft.metadata.crafting.waiveLocation, undefined);
+  assert.equal(stored.projects.commission.metadata.commission.waiveLocation, undefined);
+  assert.equal(stored.projects.commission.metadata.commission.itemName, "Rope");
 });
 
 test("outcome bands and complication triggers use the book", () => {

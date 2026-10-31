@@ -55,7 +55,7 @@ The player or the GM can allocate. The GM can allocate for a character whose pla
 
 ### GM overrides
 
-Only a GM can change required days, cost, the location gate, or the outcome. A GM can waive presence for one allocation; history records the waiver. A GM can set the result to a chosen band instead of the roll. Players cannot do any of that. The server rejects the change, and the field is not editable for them.
+Only a GM can change required days, cost, or the outcome. A GM can set the result to a chosen band instead of the roll. Players cannot do any of that. The server rejects the change, and the field is not editable for them.
 
 ## Per activity
 
@@ -117,7 +117,7 @@ Social class means wealth and station, not a character class. The sheet has no s
 Display name **Research**. Id `lore-research`, so it does not collide with `research-drakkenheim-recipes`.
 
 - The player writes the question.
-- Location: must have a **Library** capability. A sage with no library is a GM waiver.
+- Location: must have a **Library** capability.
 - Time: 7 days. Cost: **confirm**. Do not lock a number until the book row is checked. A placeholder of 50 gp for the week is only a guess.
 - Check: the player picks History, Arcana, Religion, or Investigation, whichever fits the question. **Confirm** the list.
 - Presence: required in this design. **Confirm** if research should instead finish on **Advance Day** while the library gate stays.
@@ -149,7 +149,7 @@ Node tests, no Foundry, for the rules. A later Dev1 pass checks the windows.
 - A presence day applies only when the Session is active, the owner is a participant, the locations match, and the activity is enabled. Otherwise the Project day does not move.
 - When **Days** is 2, the third allocation is refused and `completedDays` stays 2. When **Days** is blank, a third day still applies.
 - **Advance Day** still moves a Commission and does not move a Carousing Project.
-- A Temple is required for Religious Service. A Library is required for Research. A location without that capability is rejected. A GM waiver is stored.
+- A Temple is required for Religious Service. A Library is required for Research. A location without that capability is rejected.
 - Upper class Carousing is rejected until the GM confirms it. Lower and middle are not.
 - The roll request uses the Core card. The player's dialog total selects the band. A cancelled dialog does not resolve the Project. A second resolution does not roll again.
 - A `percent` trigger of 10 rolls a complication only on d100 results 1–10. A `band` trigger rolls only on the marked rows. A `gm` trigger never rolls until the GM asks.

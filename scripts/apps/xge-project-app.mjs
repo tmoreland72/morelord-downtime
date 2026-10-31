@@ -69,8 +69,7 @@ export class XgeProjectApp extends DowntimeApplication {
         extraGp: Number(form.get("extraGp") ?? 0),
         gamingSet: String(form.get("gamingSet") ?? ""),
         replaceIndex: Number(form.get("replaceIndex") ?? 0),
-        replaceWithAttack: String(form.get("replaceWithAttack") ?? ""),
-        waiveLocation: form.get("waiveLocation") === "on"
+        replaceWithAttack: String(form.get("replaceWithAttack") ?? "")
       };
       if (!data.gamingSet) delete data.gamingSet;
       if (!data.replaceWithAttack) delete data.replaceWithAttack;

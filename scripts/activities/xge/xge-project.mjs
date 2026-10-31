@@ -20,8 +20,7 @@ export function buildXgeProject(data = {}, { isGm = false, location = null, idFa
   if (!activity) throw new Error("Unknown downtime activity.");
   const locationId = String(data.locationId ?? "").trim();
   if (!locationId) throw new Error(`${activity.name} requires a Location.`);
-  if (data.waiveLocation === true && !isGm) throw new Error("Only a GM can waive a location requirement.");
-  if (data.waiveLocation !== true && !locationHasCapability(location, activity.capability)) {
+  if (!locationHasCapability(location, activity.capability)) {
     throw new Error(`${activity.name} requires a location with a ${CAPABILITY_LABEL[activity.capability]}.`);
   }
   if (activityType === "carousing") {
@@ -36,6 +35,11 @@ export function buildXgeProject(data = {}, { isGm = false, location = null, idFa
   if (activityType === "lore-research") researchBonus(data.extraGp);
   const costGp = xgeCost(activityType, data, { isGm });
   const checks = xgeChecks(activityType, data);
+  const priorMetadata = { ...(data.metadata ?? {}) };
+  if (priorMetadata.xge?.waiveLocation != null) {
+    const { waiveLocation: _dropped, ...xgeRest } = priorMetadata.xge;
+    priorMetadata.xge = xgeRest;
+  }
   const project = createProject({
     ...data,
     name: data.name ?? activity.name,
@@ -45,7 +49,7 @@ export function buildXgeProject(data = {}, { isGm = false, location = null, idFa
     progress: { mode: "elapsed", elapsed: { requiredDays: XGE_DAYS, completedDays: Number(data.completedDays ?? 0) } },
     costs: costGp ? [{ type: "currency", denomination: "gp", amount: costGp, purpose: activityType }] : [],
     metadata: {
-      ...(data.metadata ?? {}),
+      ...priorMetadata,
       xge: {
         npcNames: String(data.npcNames ?? "").trim(),
         socialClass: data.socialClass ?? null,
