@@ -4,6 +4,7 @@ import { assertNpcInstructorSpecialty, filterNpcTrainingChoices } from "../domai
 import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-participation.js";
 import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { DowntimeApplication } from "./downtime-application.mjs";
+import { openProjectTypeGuide } from "../ui/project-type-guide.mjs";
 import { getCoreParticipation } from "../integrations/core-api.mjs";
 
 const characterChoices = (options = {}) => getCoreParticipation().listCharacterChoices(options);
@@ -396,7 +397,7 @@ export class NewProjectApp extends DowntimeApplication {
     tag: "section",
     position: { width: 620, height: 760 },
     window: { title: "New Project", icon: "fa-solid fa-folder-plus", resizable: true },
-    actions: { choose: NewProjectApp.choose }
+    actions: { choose: NewProjectApp.choose, explain: NewProjectApp.explain }
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/new-project.hbs" } };
 
@@ -412,6 +413,11 @@ export class NewProjectApp extends DowntimeApplication {
         actionIcon: activity.actionIcon
       }))
     };
+  }
+
+  static explain(event) {
+    event.preventDefault();
+    return openProjectTypeGuide();
   }
 
   static async choose(event, target) {

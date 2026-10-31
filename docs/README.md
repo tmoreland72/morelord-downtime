@@ -32,7 +32,7 @@ Character choices include player-owned characters and character members of the p
 
 ## Player workflow
 
-Open Downtime to see Sessions and Projects relevant to characters you own. Sessions are read-only for players. Only a GM can create, edit, or delete a Session. Create a Project, or plan an existing Project into an eligible Session. Once the Session is active, choose contributors and allocate hours. Each contributor spends the entered duration; the Project gains that duration once. A Project can continue across multiple Sessions. **Available Activities** includes Training, Crafting, and Source Item. When one of those is enabled, time spent on it is allocated to that character in the active Session. The Session shows its Location, or **No Location**. What that place allows is explained in **Shared Locations**.
+Open Downtime to see Sessions and Projects relevant to characters you own. On **New Project**, the question mark opens an explanation of each project type: what it does, the time, the cost, the checks, where and when it advances, and the outcome. Sessions are read-only for players. Only a GM can create, edit, or delete a Session. Create a Project, or plan an existing Project into an eligible Session. Once the Session is active, choose contributors and allocate hours. Each contributor spends the entered duration; the Project gains that duration once. A Project can continue across multiple Sessions. **Available Activities** includes Training, Crafting, and Source Item. When one of those is enabled, time spent on it is allocated to that character in the active Session. The Session shows its Location, or **No Location**. What that place allows is explained in **Shared Locations**.
 
 ## Shared Locations
 
