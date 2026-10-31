@@ -1,11 +1,26 @@
 import { ItemPickerApp } from "../../../morelord-core/scripts/ui/item-picker-app.js";
 import { trainingDefault, commissionDefault } from "../domain/project-defaults.mjs";
+import { assertNpcInstructorSpecialty, filterNpcTrainingChoices } from "../domain/instructor-specialty.mjs";
 import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-participation.js";
 import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { DowntimeApplication } from "./downtime-application.mjs";
+import { openProjectTypeGuide } from "../ui/project-type-guide.mjs";
 import { getCoreParticipation } from "../integrations/core-api.mjs";
 
 const characterChoices = (options = {}) => getCoreParticipation().listCharacterChoices(options);
+
+async function worldActorUuid(uuid) {
+  const value = String(uuid ?? "").trim();
+  if (!value || typeof globalThis.fromUuid !== "function") return null;
+  try {
+    const document = await fromUuid(value);
+    const actor = document?.documentName === "Actor" ? document : document?.actor;
+    if (!actor?.uuid) return null;
+    return { uuid: actor.uuid, name: actor.name ?? null };
+  } catch {
+    return null;
+  }
+}
 const selectedCharacterUuids = form => getCoreParticipation().selectedCharacterUuids(form);
 const participantRecords = uuids => getCoreParticipation().participantRecords(uuids);
 
@@ -24,12 +39,14 @@ class TrainingSelectionApp extends DowntimeApplication {
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/training-selection.hbs" } };
 
-  constructor({ choices = [], selectedValue = "", onSelect = null } = {}) {
+  constructor({ choices = [], selectedValue = "", onSelect = null, emptyTitle = null, emptyDetail = null } = {}) {
     super();
     this.choices = choices;
     this.selectedValue = selectedValue;
     this.onSelect = onSelect;
     this.category = "all";
+    this.emptyTitle = emptyTitle;
+    this.emptyDetail = emptyDetail;
   }
 
   async _prepareContext(options) {
@@ -45,7 +62,9 @@ class TrainingSelectionApp extends DowntimeApplication {
         category,
         count: this.choices.filter(choice => choice.category === category).length
       })),
-      resultCount: this.choices.length
+      resultCount: this.choices.length,
+      emptyTitle: this.emptyTitle ?? "No Matching Training",
+      emptyDetail: this.emptyDetail ?? "Change the search text or category filter."
     };
   }
 
@@ -157,6 +176,7 @@ export class TrainingProjectApp extends DowntimeApplication {
       locations: (this.constructor.services.locations()?.list?.() ?? []).map(location => ({ ...location, selected: location.id === project?.locationId })),
       selectedTraining,
       requiredHours: project?.progress?.effort?.requiredHours ?? "",
+      canEditRequiredHours: game.user?.isGM === true,
       trainingGuidance: selectedTraining ? trainingDefault(selectedTraining.kind, game.actors.get(defaultStudentUuid.split(".").at(-1))?.system?.abilities?.int?.mod).guidance : ""
     };
   }
@@ -173,7 +193,22 @@ export class TrainingProjectApp extends DowntimeApplication {
       if (!this.projectId && !this.trainingHoursEdited) this.updateTrainingDefault();
     });
     this.element.querySelector('[name="requiredHours"]')?.addEventListener("input", () => { this.trainingHoursEdited = true; });
-    instructor?.addEventListener("change", refresh);
+    const locationField = this.element.querySelector('[name="locationId"]');
+    const enforceNpcSpecialty = () => {
+      if ((instructor?.value ?? "") !== "npc") return;
+      if (this.npcTrainingChoices("npc").some(choice => choice.value === this.selectedTrainingValue)) return;
+      this.selectedTrainingValue = "";
+      const input = this.element.querySelector('[name="proficiency"]');
+      if (input) input.value = "";
+      const label = this.element.querySelector("[data-selected-training-label]");
+      const category = this.element.querySelector("[data-selected-training-category]");
+      if (label) label.textContent = "No training selected";
+      if (category) category.textContent = "This Location's Instructor cannot teach the previously selected subject.";
+      const hours = this.element.querySelector("[data-training-hours]");
+      if (hours) hours.hidden = true;
+    };
+    instructor?.addEventListener("change", () => { refresh(); enforceNpcSpecialty(); });
+    locationField?.addEventListener("change", enforceNpcSpecialty);
     refresh();
   }
 
@@ -184,18 +219,32 @@ export class TrainingProjectApp extends DowntimeApplication {
     const actor = game.actors.get(ownerUuid.split(".").at(-1));
     const defaults = trainingDefault(choice.kind, actor?.system?.abilities?.int?.mod);
     this.element.querySelector("[data-training-hours]").hidden = false;
-    this.element.querySelector('[name="requiredHours"]').value = defaults.hours;
+    if (!this.projectId || game.user?.isGM === true) {
+      for (const input of this.element.querySelectorAll('[name="requiredHours"]')) input.value = defaults.hours;
+    }
     this.element.querySelector("[data-training-guidance]").textContent = defaults.guidance;
+  }
+
+  npcTrainingChoices(instructorSelection) {
+    const knownInstructor = this.trainingCatalog.filter(choice => !instructorSelection
+      || instructorSelection === "npc"
+      || choice.instructorUuids.split("|").filter(Boolean).includes(instructorSelection));
+    if (instructorSelection !== "npc") return knownInstructor;
+    const locationId = this.element.querySelector('[name="locationId"]')?.value ?? "";
+    const location = locationId ? this.constructor.services.locations()?.get?.(locationId) ?? null : null;
+    return filterNpcTrainingChoices(knownInstructor, location);
   }
 
   static selectTraining(event) {
     event.preventDefault();
     const instructorSelection = this.element.querySelector('[name="instructorSelection"]')?.value ?? "";
-    const choices = this.trainingCatalog.filter(choice => !instructorSelection
-      || instructorSelection === "npc"
-      || choice.instructorUuids.split("|").filter(Boolean).includes(instructorSelection));
+    const locationId = this.element.querySelector('[name="locationId"]')?.value ?? "";
+    const choices = this.npcTrainingChoices(instructorSelection);
+    const restricted = instructorSelection === "npc" && locationId;
     return new TrainingSelectionApp({
       choices,
+      emptyTitle: restricted ? "No Instructor Specialty" : null,
+      emptyDetail: restricted ? "This Location's Instructor cannot teach the subjects in the current list." : null,
       selectedValue: this.selectedTrainingValue,
       onSelect: choice => {
         this.selectedTrainingValue = choice.value;
@@ -218,7 +267,11 @@ export class TrainingProjectApp extends DowntimeApplication {
     try {
       const ownerUuid = String(form.get("ownerUuid") ?? "");
       const instructorSelection = String(form.get("instructorSelection") ?? "");
-      const instructorUuid = instructorSelection === "npc" ? null : instructorSelection;
+      const selectedInstructor = instructorSelection === "npc" ? null : await worldActorUuid(instructorSelection);
+      const instructorUuid = selectedInstructor?.uuid ?? (instructorSelection === "npc" ? null : instructorSelection);
+      const instructorName = selectedInstructor?.name
+        ?? this.element.querySelector('[name="instructorSelection"] option:checked')?.textContent?.trim()
+        ?? null;
       const npcInstructorName = String(form.get("npcInstructorName") ?? "").trim();
       const [kind, proficiencyId] = String(form.get("proficiency") ?? "").split(":", 2);
       const requiredHours = Number(form.get("requiredHours"));
@@ -228,12 +281,17 @@ export class TrainingProjectApp extends DowntimeApplication {
       if (ownerUuid === instructorUuid) throw new Error("The student and instructor must be different characters.");
       if (!proficiencyId || !this.constructor.services.proficiencies.supports(kind)) throw new Error("Choose a specific training proficiency.");
       if (!Number.isFinite(requiredHours) || requiredHours <= 0) throw new Error("Required hours must be greater than zero.");
+      const locationId = String(form.get("locationId") ?? "").trim() || null;
+      if (instructorSelection === "npc") {
+        const location = locationId ? this.constructor.services.locations()?.get?.(locationId) ?? null : null;
+        assertNpcInstructorSpecialty({ instructor: { mode: "npc" }, locationId, proficiencyId }, location);
+      }
       const data = {
         kind, proficiencyId, requiredHours,
         proficiencyLabel: selected?.label ?? proficiencyId,
-        locationId: String(form.get("locationId") ?? "").trim() || null,
+        locationId,
         owner: { uuid: ownerUuid, name: game.actors.get(ownerUuid.split(".").at(-1))?.name ?? null },
-        instructor: instructorSelection === "npc" ? { mode: "npc", name: npcInstructorName } : { mode: "participant", actorUuid: instructorUuid },
+        instructor: instructorSelection === "npc" ? { mode: "npc", name: npcInstructorName } : { mode: "participant", actorUuid: instructorUuid, name: instructorName },
         participants: instructorSelection === "npc"
           ? [{ actorUuid: ownerUuid, role: "student", approved: true }]
           : [{ actorUuid: ownerUuid, role: "student", approved: true }, { actorUuid: instructorUuid, role: "instructor", approved: true }]
@@ -339,7 +397,7 @@ export class NewProjectApp extends DowntimeApplication {
     tag: "section",
     position: { width: 620, height: 760 },
     window: { title: "New Project", icon: "fa-solid fa-folder-plus", resizable: true },
-    actions: { choose: NewProjectApp.choose }
+    actions: { choose: NewProjectApp.choose, explain: NewProjectApp.explain }
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/new-project.hbs" } };
 
@@ -355,6 +413,11 @@ export class NewProjectApp extends DowntimeApplication {
         actionIcon: activity.actionIcon
       }))
     };
+  }
+
+  static explain(event) {
+    event.preventDefault();
+    return openProjectTypeGuide();
   }
 
   static async choose(event, target) {
@@ -386,13 +449,27 @@ export class SessionEditorApp extends DowntimeApplication {
     this.sessionId = options.sessionId ?? null;
   }
 
+  _onRender(context, options) {
+    super._onRender(context, options);
+    const days = this.element.querySelector('[name="days"]');
+    const hours = this.element.querySelector('[name="plannedDurationHours"]');
+    days?.addEventListener("input", () => {
+      const raw = days.value.trim();
+      if (!raw || !hours) return;
+      const count = Number(raw);
+      if (Number.isInteger(count) && count >= 1) hours.value = String(count * 8);
+    });
+  }
+
   async _prepareContext(options) {
     const session = this.sessionId ? await this.constructor.services.sessions.get(this.sessionId) : null;
     const participantIds = new Set(session?.participants.map(entry => entry.actorUuid) ?? []);
     const activityIds = new Set(session?.availableActivities ?? []);
+    const readOnly = globalThis.game?.user ? game.user.isGM !== true : false;
     return {
       ...await super._prepareContext(options),
       isEditing: Boolean(session),
+      readOnly,
       session,
       actors: characterChoices({ selectedUuids: session ? participantIds : null }),
       locations: (this.constructor.services.locations()?.list?.() ?? []).map(location => ({ ...location, selected: location.id === session?.locationId })),
@@ -402,21 +479,32 @@ export class SessionEditorApp extends DowntimeApplication {
 
   static async create(event, target) {
     event.preventDefault();
+    if (globalThis.game?.user && game.user.isGM !== true) {
+      ui.notifications.error("Only a GM may change Downtime Sessions.");
+      return;
+    }
     const form = new FormData(this.element);
     target.disabled = true;
     try {
       const actorUuids = selectedCharacterUuids(form);
-      const plannedDurationHours = Number(form.get("plannedDurationHours") ?? 0);
+      const daysRaw = String(form.get("days") ?? "").trim();
+      const hoursRaw = String(form.get("plannedDurationHours") ?? "").trim();
+      const plannedDurationHours = Number(hoursRaw);
       const existing = this.sessionId ? await this.constructor.services.sessions.get(this.sessionId) : null;
       const unavailableActivities = (existing?.availableActivities ?? []).filter(id => this.constructor.services.activities.get(id)?.isAvailable() === false);
       if (!actorUuids.length) throw new Error("Select at least one participant.");
-      if (!Number.isFinite(plannedDurationHours) || plannedDurationHours <= 0) throw new Error("Planned duration must be greater than zero.");
+      if (!hoursRaw || !Number.isFinite(plannedDurationHours) || plannedDurationHours <= 0) throw new Error("Hours must be greater than 0.");
+      let days = null;
+      if (daysRaw) {
+        days = Number(daysRaw);
+        if (!Number.isInteger(days) || days < 1) throw new Error("Days must be a whole number of at least 1.");
+      }
       const data = {
         name: String(form.get("name") ?? "").trim(),
         description: String(form.get("description") ?? ""),
         gmNotes: String(form.get("gmNotes") ?? ""),
-        status: "draft",
         locationId: String(form.get("locationId") ?? "").trim() || null,
+        days,
         plannedDurationHours,
         availableActivities: [...new Set([...form.getAll("availableActivities").map(String), ...unavailableActivities])],
         participants: participantRecords(actorUuids)
@@ -424,7 +512,7 @@ export class SessionEditorApp extends DowntimeApplication {
       const session = this.sessionId
         ? await this.constructor.services.sessions.update(this.sessionId, data)
         : await this.constructor.services.sessions.create(data);
-      ui.notifications.info(`${session.name} ${this.sessionId ? "updated" : "saved as a draft"}.`);
+      ui.notifications.info(`${session.name} ${this.sessionId ? "updated" : "saved"}.`);
       await this.close();
       await this.constructor.services.onCreated?.(session);
     } catch (error) {

@@ -2,7 +2,7 @@ const titleCase = value => String(value).replace(/([a-z])([A-Z])/g, "$1 $2").rep
 const asSet = value => new Set(value instanceof Set || Array.isArray(value) ? value : []);
 
 export class Dnd5eProficiencyAdapter {
-  constructor({ config = () => CONFIG.DND5E, resolveUuid = uuid => fromUuid(uuid), localize = key => game.i18n.localize(key) } = {}) {
+  constructor({ config = () => globalThis.CONFIG?.DND5E, resolveUuid = uuid => fromUuid(uuid), localize = key => game.i18n.localize(key) } = {}) {
     this.getConfig = typeof config === "function" ? config : () => config;
     this.resolveUuid = resolveUuid;
     this.localize = localize;

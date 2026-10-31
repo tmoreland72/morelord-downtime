@@ -15,6 +15,6 @@
     </div>
     <button type="button" data-action="selectTraining"><i class="fa-solid fa-list-check"></i> Select Training</button>
   </div>
-  <div data-training-hours {{#unless selectedTraining}}hidden{{/unless}}><label><span>Required Hours (GM Adjustable)</span><input name="requiredHours" type="number" min="1" step="1" value="{{requiredHours}}"></label><p class="notes" data-training-guidance>{{trainingGuidance}}</p></div>
+  <div data-training-hours {{#unless selectedTraining}}hidden{{/unless}}><label><span>Required Hours (GM Adjustable)</span><input name="requiredHours" type="number" min="1" step="1" value="{{requiredHours}}" {{#unless canEditRequiredHours}}disabled{{/unless}}></label>{{#unless canEditRequiredHours}}<input type="hidden" name="requiredHours" value="{{requiredHours}}">{{/unless}}<p class="notes" data-training-guidance>{{trainingGuidance}}</p></div>
   <footer class="ml-page-footer ml-actions">{{#if canCancelProject}}<button type="button" data-action="cancelProject" data-tone="danger"><i class="fa-solid fa-ban"></i> Cancel Project</button>{{/if}}{{#if canDeleteProject}}<button type="button" data-action="deleteProject" data-tone="danger"><i class="fa-solid fa-trash"></i> Delete Project</button>{{/if}}<button type="button" data-action="create"><i class="fa-solid fa-floppy-disk"></i> {{#if isEditing}}Save Project{{else}}Start Training{{/if}}</button></footer>
 </section>

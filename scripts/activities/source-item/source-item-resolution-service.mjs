@@ -1,26 +1,76 @@
-import { applySourceItemPersuasion, resolveSourceItemProject, sourceItemPriceFormula } from "./source-item-activity.mjs";
+import { applySourceItemPersuasion, formatPriceAdjustment, resolveSourceItemProject, sourceItemCollectionNotice, sourceItemPriceFormula } from "./source-item-activity.mjs";
+import { sourceItemPersuasionCard, sourceItemRollCard } from "./source-item-roll-request.mjs";
+import { completeChatRoll } from "../../../../morelord-core/scripts/services/chat-roll-requests.js";
 
 export class SourceItemResolutionService {
-  constructor({ catalog }) { this.catalog = catalog; }
+  constructor({ catalog, getRequests = () => null, commit = async project => project, getLocation = () => null }) {
+    this.catalog = catalog;
+    this.getRequests = getRequests;
+    this.commit = commit;
+    this.getLocation = getLocation;
+  }
 
-  async resolve(project) {
-    const actor = await fromUuid(project.owner.uuid);
-    if (!actor) throw new Error("The Source Item owner could not be resolved.");
-    const skill = project.metadata.sourceItem.checkSkill;
-    const skillModifier = Number(actor.system?.skills?.[skill]?.total ?? actor.system?.skills?.[skill]?.mod ?? 0);
+  /** Post Core's roll request instead of rolling the skill check for the player. */
+  async requestRoll(project) {
+    if (project.metadata?.sourceItem?.outcome) return project;
+    const requests = this.getRequests();
+    if (typeof requests?.create !== "function") throw new Error("Morelord Core roll requests are unavailable. Update and enable Morelord Core.");
+    await requests.create(sourceItemRollCard(project));
+    const pending = structuredClone(project);
+    pending.metadata.sourceItem.pendingRoll = true;
+    return pending;
+  }
+
+  async requestPersuasion(project) {
+    const sourceItem = project.metadata?.sourceItem;
+    if (!sourceItem?.outcome) throw new Error("The sourcing result has not been revealed.");
+    if (sourceItem.persuasion) throw new Error("Persuasion has already been attempted for this offer.");
+    const requests = this.getRequests();
+    if (typeof requests?.create !== "function") throw new Error("Morelord Core roll requests are unavailable. Update and enable Morelord Core.");
+    await requests.create(sourceItemPersuasionCard(project));
+    const pending = structuredClone(project);
+    pending.metadata.sourceItem.pendingPersuasion = true;
+    return this.commit(pending);
+  }
+
+  async applyRoll(project, check, { messageId = null } = {}) {
+    if (project.metadata?.sourceItem?.outcome) return project;
     const resolved = await resolveSourceItemProject(project, {
-      skillModifier,
-      rollD20: async () => (await new Roll("1d20").evaluate()).total,
+      skillModifier: check.skillModifier,
+      rollD20: async () => check.naturalRoll,
       rollPrice: rarity => this.#rollPrice(rarity),
       rollAlternativeCount: async () => (await new Roll("1d4").evaluate()).total,
       getAlternatives: (rarity, excludeUuid, count) => this.catalog.randomItems({ maxRarity: rarity, count, excludeUuids: [excludeUuid] })
     });
-    await this.#postResult(resolved);
-    return resolved;
+    resolved.metadata.sourceItem.pendingRoll = false;
+    const saved = await this.commit(resolved);
+    await this.#postResult(saved);
+    await this.#completeRequest(messageId);
+    return saved;
+  }
+
+  async #completeRequest(messageId) {
+    if (!messageId || !globalThis.game?.messages?.get) return;
+    const message = game.messages.get(messageId);
+    if (message) await completeChatRoll(message, "");
   }
 
   async negotiate(project, roll) {
-    return applySourceItemPersuasion(project, { naturalRoll: roll?.naturalRoll, skillModifier: roll?.rollModifier });
+    return applySourceItemPersuasion(project, { naturalRoll: roll?.naturalRoll, skillModifier: roll?.skillModifier ?? roll?.rollModifier });
+  }
+
+  async applyPersuasion(project, check, { messageId = null } = {}) {
+    const resolved = await this.negotiate(project, check);
+    const saved = await this.commit(resolved);
+    await this.#postPersuasion(saved);
+    await this.#completeRequest(messageId);
+    return saved;
+  }
+
+  #collectionNotice(project) {
+    const locationId = project.locationId;
+    const location = locationId ? this.getLocation(locationId) : null;
+    return sourceItemCollectionNotice({ locationId, locationName: location?.name });
   }
 
   async #rollPrice(rarity) {
@@ -36,12 +86,32 @@ export class SourceItemResolutionService {
     const items = sourceItem.outcome.success
       ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
       : sourceItem.outcome.alternatives;
+    const success = sourceItem.outcome.success === true;
     const content = await foundry.applications.handlebars.renderTemplate("modules/morelord-downtime/templates/chat/source-item-result.hbs", {
       projectName: project.name,
       ownerName: project.owner.name ?? "Character",
-      success: sourceItem.outcome.success,
+      success,
+      collectionMessage: success ? this.#collectionNotice(project).message : null,
       total: sourceItem.outcome.total,
       dc: sourceItem.dc,
+      items: items.map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }))
+    });
+    await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ alias: project.owner.name ?? "Source Item" }), content });
+  }
+
+  async #postPersuasion(project) {
+    const sourceItem = project.metadata.sourceItem;
+    const persuasion = sourceItem.persuasion;
+    const items = sourceItem.outcome.success
+      ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
+      : sourceItem.outcome.alternatives;
+    const content = await foundry.applications.handlebars.renderTemplate("modules/morelord-downtime/templates/chat/source-item-persuasion.hbs", {
+      projectName: project.name,
+      ownerName: project.owner.name ?? "Character",
+      total: persuasion.total,
+      dc: persuasion.dc,
+      tierLabel: persuasion.tierLabel,
+      adjustmentLabel: formatPriceAdjustment(persuasion.adjustment),
       items: items.map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }))
     });
     await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ alias: project.owner.name ?? "Source Item" }), content });

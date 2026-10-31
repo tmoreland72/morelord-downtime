@@ -12,15 +12,25 @@ import { ProjectDetailApp, SessionDetailApp } from "./apps/detail-apps.mjs";
 import { SessionService } from "./services/session-service.mjs";
 import { AllocationAuthorityService } from "./services/allocation-authority-service.mjs";
 import { DOWNTIME_DOCUMENTATION } from "./documentation/product-documentation.mjs";
-import { queueLiveWindowRefresh } from "./apps/live-window-registry.mjs";
+import { downtimeStateSettingChanged, queueLiveWindowRefresh } from "./apps/live-window-registry.mjs";
 import { Dnd5eProficiencyAdapter } from "./adapters/dnd5e-proficiency-adapter.mjs";
 import { CraftworksProjectAdapter } from "./adapters/craftworks-project-adapter.mjs";
+import { registerCraftTimeTracking } from "./integrations/craft-time-tracking.mjs";
+import { CraftTimeService, craftingProjectsFromFlags } from "./services/craft-time-service.mjs";
+import { isPrimaryActiveGm } from "./services/primary-gm.mjs";
+import { assertNpcInstructorSpecialty } from "./domain/instructor-specialty.mjs";
 import { COMMISSION_ACTIVITY_ID, commissionSummary, createCommissionProject } from "./activities/commission/commission-activity.mjs";
 import { addMorelordTool, getCoreApi, getCoreLocations, getModuleApi } from "./integrations/core-api.mjs";
 import { DOWNTIME_SCENE_TOOL } from "./integrations/downtime-scene-tool.mjs";
 import { SOURCE_ITEM_ACTIVITY_ID, createSourceItemProject, sourceItemSummary } from "./activities/source-item/source-item-activity.mjs";
+import { sourceItemApi as publicSourceItemApi } from "./activities/source-item/source-item-api.mjs";
+import { SOURCE_ITEM_PERSUASION_TYPE, SOURCE_ITEM_ROLL_TYPE, installSourceItemRollCards } from "./activities/source-item/source-item-roll-request.mjs";
 import { SourceItemResolutionService } from "./activities/source-item/source-item-resolution-service.mjs";
 import { SourceItemProjectApp } from "./apps/source-item-app.mjs";
+import { XgeResolutionService } from "./activities/xge/xge-resolution-service.mjs";
+import { registerXgeActivities } from "./activities/xge/register-xge.mjs";
+import { XGE_ROLL_TYPE, installXgeRollCards } from "./activities/xge/xge-roll-request.mjs";
+import { XgeProjectApp } from "./apps/xge-project-app.mjs";
 import { MarketplaceSourcingAdapter } from "./adapters/marketplace-sourcing-adapter.mjs";
 import { RESEARCH_ACTIVITY_ID, RecipeResearchService } from "./activities/research/research-activity.mjs";
 import { ResearchProjectApp } from "./apps/research-project-app.mjs";
@@ -30,8 +40,22 @@ const activities = new ActivityRegistry();
 const projects = new ProjectService({ repository, activityRegistry: activities });
 const proficiencies = new Dnd5eProficiencyAdapter();
 const craftworksProjects = new CraftworksProjectAdapter();
+const craftTime = new CraftTimeService({
+  repository,
+  isPrimaryGm: () => isPrimaryActiveGm(),
+  getIntegration: () => getModuleApi("morelord-craftworks", "MorelordCraftworks")?.downtimeIntegration,
+  readProjects: readCraftingProjects,
+  getActors: () => Array.from(globalThis.game?.actors ?? []).filter(actor => actor.type === "character")
+});
+craftTime.holdForBaseline();
+registerCraftTimeTracking(craftTime);
 const marketplaceSourcing = new MarketplaceSourcingAdapter();
-const sourceItemResolution = new SourceItemResolutionService({ catalog: marketplaceSourcing });
+const sourceItemResolution = new SourceItemResolutionService({
+  catalog: marketplaceSourcing,
+  getRequests: () => getCoreApi()?.chatRequests,
+  commit: project => projects.commit(project),
+  getLocation: id => getCoreApi()?.locations?.get?.(id) ?? null
+});
 const trainingAwards = new TrainingAwardService({ proficiencyAdapter: proficiencies });
 const research = new RecipeResearchService();
 const researchApi = {
@@ -41,10 +65,20 @@ let dashboardApp = null;
 let trainingApi = null;
 let commissionApi = null;
 let sourceItemApi = null;
+let xgeApi = null;
 const sessions = new SessionService({ repository });
 const segments = new SegmentService({
   repository,
   activityRegistry: activities,
+  getLocation: id => getCoreApi()?.locations?.get?.(id) ?? null,
+  resolveActor: async uuid => {
+    try {
+      const document = await fromUuid(uuid);
+      if (document?.documentName === "Actor") return document.uuid;
+      if (document?.actor?.uuid) return document.actor.uuid;
+    } catch { /* keep the stored id */ }
+    return uuid;
+  },
   requirementEvaluator: (requirements, context) => {
     const locations = getCoreApi()?.locations;
     if (!locations?.evaluate) return { passed: false, reasons: ["Morelord Core Location services are unavailable."] };
@@ -69,14 +103,31 @@ const allocationAuthority = new AllocationAuthorityService({
   getTraining: () => trainingApi,
   getCommission: () => commissionApi,
   getSourceItem: () => sourceItemApi,
-  getResearch: () => researchApi
+  getResearch: () => researchApi,
+  getXge: () => xgeApi
 });
 
-function isPrimaryActiveGm() {
-  const activeGms = Array.from(globalThis.MorelordCore?.users?.list() ?? game.users ?? [])
-    .filter(user => user.active && user.isGM)
-    .sort((left, right) => left.id.localeCompare(right.id));
-  return game.user.isGM && (!activeGms.length || activeGms[0].id === game.user.id);
+function readCraftingProjects(actor) {
+  const fromFlags = craftingProjectsFromFlags(actor);
+  const api = getModuleApi("morelord-craftworks", "MorelordCraftworks");
+  if (fromFlags) {
+    return fromFlags.map(project => {
+      const recipe = api?.recipes?.get?.(project.recipeId, { includeDisabled: true });
+      return { ...project, recipeName: recipe?.name ? String(recipe.name) : (project.recipeName ?? "a recipe") };
+    });
+  }
+  if (!api?.craftingJobs?.list || !api.craftingJobs.getProgress) return null;
+  return api.craftingJobs.list(actor, { activeOnly: false }).map(job => {
+    const progress = api.craftingJobs.getProgress(job.recipeId, actor, job.inventoryActorUuid);
+    const recipe = api.recipes?.get?.(job.recipeId, { includeDisabled: true });
+    const timeSpentHours = Number(progress?.timeSpentHours ?? 0);
+    return {
+      recipeId: String(job.recipeId),
+      timeSpentHours: Number.isFinite(timeSpentHours) ? Math.max(0, timeSpentHours) : 0,
+      recipeName: recipe?.name ? String(recipe.name) : "a recipe",
+      outputAwarded: progress?.outputAwarded === true
+    };
+  });
 }
 
 function missingOptionalSuiteApis() {
@@ -107,6 +158,7 @@ Hooks.once("init", () => {
 addMorelordTool(DOWNTIME_SCENE_TOOL);
 
 Hooks.once("ready", () => {
+  void craftTime.baselineWhenReady();
   getCoreApi()?.ui?.documentation?.register(DOWNTIME_DOCUMENTATION);
   const coreLocations = () => getCoreLocations();
   activities.register({
@@ -149,12 +201,12 @@ Hooks.once("ready", () => {
     name: "Source Item",
     icon: "fa-solid fa-magnifying-glass-dollar",
     description: "Invest gold and weeks to locate a magic item from a character's Marketplace wishlist.",
-    availableInSessions: false,
+    availableInSessions: true,
     launch: () => new SourceItemProjectApp().render({ force: true }),
     edit: project => new SourceItemProjectApp({ projectId: project.id }).render({ force: true }),
     createProject: data => createSourceItemProject(data, { idFactory: () => foundry.utils.randomID() }),
     getSummary: sourceItemSummary,
-    onComplete: project => sourceItemResolution.resolve(project)
+    onComplete: project => sourceItemResolution.requestRoll(project)
   });
   activities.register({
     id: "crafting",
@@ -169,11 +221,24 @@ Hooks.once("ready", () => {
       return craftworks.openCraft();
     }
   });
+  const guardNpcInstructor = data => {
+    if (String(data?.instructor?.mode ?? "") !== "npc" || !data?.locationId) return;
+    const location = getCoreApi()?.locations?.get?.(data.locationId) ?? null;
+    assertNpcInstructorSpecialty(data, location);
+  };
   const training = Object.freeze({
-    createProject: data => projects.create(createTrainingProject(data, { idFactory: () => foundry.utils.randomID() })),
+    createProject: data => {
+      guardNpcInstructor(data);
+      return projects.create(createTrainingProject(data, { idFactory: () => foundry.utils.randomID() }));
+    },
     updateProject: async (id, data) => {
       const existing = await projects.get(id);
       if (!existing) throw new Error("Project not found.");
+      guardNpcInstructor({
+        locationId: data.locationId ?? existing.locationId,
+        proficiencyId: data.proficiencyId ?? existing.metadata?.training?.proficiencyId,
+        instructor: data.instructor ?? existing.metadata?.training?.instructor
+      });
       return projects.update(id, createTrainingProject({
         ...existing,
         ...data,
@@ -246,9 +311,53 @@ Hooks.once("ready", () => {
       if (!existing || existing.activityType !== SOURCE_ITEM_ACTIVITY_ID) throw new Error("Source Item Project not found.");
       const negotiated = await sourceItemResolution.negotiate(existing, roll);
       return projects.update(id, { metadata: negotiated.metadata });
+    },
+    applyRoll: async (id, roll, options) => {
+      const existing = await projects.get(id);
+      if (!existing || existing.activityType !== SOURCE_ITEM_ACTIVITY_ID) throw new Error("Source Item Project not found.");
+      return sourceItemResolution.applyRoll(existing, roll, options);
+    },
+    requestPersuasion: async id => {
+      const existing = await projects.get(id);
+      if (!existing || existing.activityType !== SOURCE_ITEM_ACTIVITY_ID) throw new Error("Source Item Project not found.");
+      return sourceItemResolution.requestPersuasion(existing);
+    },
+    applyPersuasion: async (id, roll, options) => {
+      const existing = await projects.get(id);
+      if (!existing || existing.activityType !== SOURCE_ITEM_ACTIVITY_ID) throw new Error("Source Item Project not found.");
+      return sourceItemResolution.applyPersuasion(existing, roll, options);
     }
   });
   sourceItemApi = sourceItem;
+  const sourceItemRequests = getCoreApi()?.chatRequests;
+  const declineAutomaticRoll = async () => ({ accepted: false, reason: "Roll this skill check from the dialog." });
+  sourceItemRequests?.register?.(SOURCE_ITEM_ROLL_TYPE, declineAutomaticRoll);
+  sourceItemRequests?.register?.(SOURCE_ITEM_PERSUASION_TYPE, declineAutomaticRoll);
+  installSourceItemRollCards({
+    hooks: Hooks,
+    rollSkill: (actor, skill, options) => getCoreApi()?.rolls?.skill(actor, skill, options),
+    applyRoll: (projectId, roll, options) => allocationAuthority.applySourceItemRoll(projectId, roll, options?.messageId),
+    applyPersuasion: (projectId, roll, options) => allocationAuthority.applySourceItemPersuasion(projectId, roll, options?.messageId)
+  });
+  const xge = new XgeResolutionService({
+    projects,
+    getActor: uuid => fromUuid(uuid),
+    getLocation: id => getCoreApi()?.locations?.get?.(id) ?? null,
+    getRequests: () => getCoreApi()?.chatRequests
+  });
+  xgeApi = xge;
+  registerXgeActivities(activities, xge);
+  XgeProjectApp.configure({
+    locations: coreLocations,
+    xge: { createProject: data => allocationAuthority.createXge(data) },
+    onCreated: () => dashboardApp?.render({ force: true })
+  });
+  getCoreApi()?.chatRequests?.register?.(XGE_ROLL_TYPE, declineAutomaticRoll);
+  installXgeRollCards({
+    hooks: Hooks,
+    rollSkill: (actor, skill, options) => getCoreApi()?.rolls?.skill(actor, skill, options),
+    applyRoll: (projectId, total, options) => allocationAuthority.applyXgeRoll(projectId, total, options?.messageId)
+  });
   allocationAuthority.start();
   DowntimeDashboardApp.configure({ projects, segments, sessions, allocationAuthority, locations: coreLocations, training, activities, craftworksProjects });
   TrainingProjectApp.configure({
@@ -344,7 +453,6 @@ Hooks.once("ready", () => {
       get: id => sessions.get(id),
       create: raw => sessions.create(raw),
       update: (id, changes) => sessions.update(id, changes),
-      publish: id => sessions.publish(id),
       planProject: (id, projectId) => sessions.planProject(id, projectId),
       start: id => sessions.start(id),
       addSegment: (id, raw) => sessions.addSegment(id, raw),
@@ -358,11 +466,11 @@ Hooks.once("ready", () => {
     deletions: Object.freeze({ deleteProject: projectId => allocationAuthority.deleteProject(projectId) }),
     training: Object.freeze({ createProject: data => allocationAuthority.createTraining(data), canProgress: canProgressTraining }),
     research: Object.freeze({ createProject: data => allocationAuthority.createResearch(data) }),
-    sourceItem: Object.freeze({
-      createProject: data => allocationAuthority.createSourceItem(data),
-      negotiate: projectId => allocationAuthority.negotiateSourceItem(projectId)
-    }),
+    sourceItem: publicSourceItemApi(allocationAuthority),
     advanceDay: context => projects.advanceDay(context),
+    craftTime: Object.freeze({
+      reconcileActor: actor => craftTime.reconcileActor(actor)
+    }),
     locations: Object.freeze({
       current: () => coreLocations()?.current?.() ?? null,
       evaluate: (requirements, context) => coreLocations()?.evaluate?.(requirements, context)
@@ -393,10 +501,7 @@ Hooks.on("morelordJourneys.dayComplete", async payload => {
 });
 
 Hooks.on("updateSetting", setting => {
-  if (setting.key === `${MODULE_ID}.${STATE_SETTING}`) queueLiveWindowRefresh();
+  if (downtimeStateSettingChanged(setting)) queueLiveWindowRefresh();
 });
 Hooks.on("morelordCoreLocationChanged", () => queueLiveWindowRefresh());
 Hooks.on("morelordCoreLocationRemoved", () => queueLiveWindowRefresh());
-Hooks.on("updateActor", (actor, changes) => {
-  if (changes.flags?.["morelord-craftworks"]) queueLiveWindowRefresh();
-});

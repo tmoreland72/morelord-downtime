@@ -1,9 +1,10 @@
 import { MODULE_ID } from "../constants.mjs";
+import { assertPlayerTrainingHours, trainingDefault } from "../domain/project-defaults.mjs";
 
 const CHANNEL = `module.${MODULE_ID}`;
 
 export class AllocationAuthorityService {
-  constructor({ segments, projects, sessions, isPrimaryGm, getTraining = () => null, getCommission = () => null, getSourceItem = () => null, getResearch = () => null, timeoutMs = 10000 }) {
+  constructor({ segments, projects, sessions, isPrimaryGm, getTraining = () => null, getCommission = () => null, getSourceItem = () => null, getResearch = () => null, getXge = () => null, timeoutMs = 10000 }) {
     this.segments = segments;
     this.projects = projects;
     this.sessions = sessions;
@@ -11,6 +12,7 @@ export class AllocationAuthorityService {
     this.getCommission = getCommission;
     this.getSourceItem = getSourceItem;
     this.getResearch = getResearch;
+    this.getXge = getXge;
     this.isPrimaryGm = isPrimaryGm;
     this.timeoutMs = timeoutMs;
     this.pending = new Map();
@@ -57,6 +59,17 @@ export class AllocationAuthorityService {
     return this.#request("research", input);
   }
 
+  async createXge(input) {
+    if (game.user.isGM) return this.getXge().createProject(input, { isGm: true });
+    return this.#request("xge", input);
+  }
+
+  async applyXgeRoll(projectId, total, messageId = null) {
+    const input = { projectId: String(projectId), total, messageId };
+    if (game.user.isGM) return this.getXge().applyStoredRoll(input.projectId, input.total, { messageId: input.messageId });
+    return this.#request("xgeRoll", input);
+  }
+
   async updateSourceItem(projectId, input) {
     const request = { projectId: String(projectId), input };
     if (game.user.isGM) return this.getSourceItem().updateProject(request.projectId, request.input);
@@ -67,6 +80,24 @@ export class AllocationAuthorityService {
     const input = { projectId: String(projectId), roll };
     if (game.user.isGM) return this.getSourceItem().negotiate(input.projectId, input.roll);
     return this.#request("sourceItemPersuasion", input);
+  }
+
+  async applySourceItemRoll(projectId, roll, messageId = null) {
+    const input = { projectId: String(projectId), roll, messageId };
+    if (game.user.isGM) return this.getSourceItem().applyRoll(input.projectId, input.roll, { messageId: input.messageId });
+    return this.#request("sourceItemRoll", input);
+  }
+
+  async requestSourceItemPersuasion(projectId) {
+    const input = { projectId: String(projectId) };
+    if (game.user.isGM) return this.getSourceItem().requestPersuasion(input.projectId);
+    return this.#request("sourceItemPersuasionRequest", input);
+  }
+
+  async applySourceItemPersuasion(projectId, roll, messageId = null) {
+    const input = { projectId: String(projectId), roll, messageId };
+    if (game.user.isGM) return this.getSourceItem().applyPersuasion(input.projectId, input.roll, { messageId: input.messageId });
+    return this.#request("sourceItemPersuasionRoll", input);
   }
 
   async planProject(sessionId, projectId) {
@@ -127,6 +158,12 @@ export class AllocationAuthorityService {
         result = await this.getTraining().createProject(input);
       } else if (kind === "trainingUpdate") {
         await this.#authorizeProjectOwner(message.userId, message.input.projectId);
+        const existing = await this.projects.get(message.input.projectId);
+        assertPlayerTrainingHours({
+          isGm: game.users.get(message.userId)?.isGM === true,
+          requestedHours: message.input.input?.requiredHours,
+          allowedHours: existing?.progress?.effort?.requiredHours
+        });
         result = await this.getTraining().updateProject(message.input.projectId, message.input.input);
       } else if (kind === "commission") {
         await this.#authorizeOwnedActor(message.userId, message.input.owner?.uuid);
@@ -148,6 +185,23 @@ export class AllocationAuthorityService {
       } else if (kind === "sourceItemPersuasion") {
         await this.#authorizeProjectOwner(message.userId, message.input.projectId);
         result = await this.getSourceItem().negotiate(message.input.projectId, message.input.roll);
+      } else if (kind === "sourceItemRoll") {
+        await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
+        result = await this.getSourceItem().applyRoll(message.input.projectId, message.input.roll, { messageId: message.input.messageId });
+      } else if (kind === "sourceItemPersuasionRequest") {
+        await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
+        result = await this.getSourceItem().requestPersuasion(message.input.projectId);
+      } else if (kind === "sourceItemPersuasionRoll") {
+        await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
+        result = await this.getSourceItem().applyPersuasion(message.input.projectId, message.input.roll, { messageId: message.input.messageId });
+      } else if (kind === "xge") {
+        await this.#authorizeOwnedActor(message.userId, message.input.owner?.uuid);
+        const requesterIsGm = game.users.get(message.userId)?.isGM === true;
+        const input = requesterIsGm ? message.input : { ...message.input, nobilityAccess: false, allowHighStake: false };
+        result = await this.getXge().createProject(input, { isGm: requesterIsGm });
+      } else if (kind === "xgeRoll") {
+        await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
+        result = await this.getXge().applyStoredRoll(message.input.projectId, message.input.total, { messageId: message.input.messageId });
       } else if (kind === "planning") {
         await this.#authorizePlanning(message.userId, message.input);
         result = await this.sessions.planProject(message.input.sessionId, message.input.projectId);
@@ -185,6 +239,12 @@ export class AllocationAuthorityService {
     if (!user?.active) throw new Error("Requesting player is unavailable.");
     const ownerActor = await fromUuid(input.owner?.uuid);
     if (!ownerActor?.testUserPermission(user, "OWNER")) throw new Error("You do not control the selected student.");
+    const modifier = Number(ownerActor?.system?.abilities?.int?.mod ?? 0);
+    assertPlayerTrainingHours({
+      isGm: user.isGM === true,
+      requestedHours: input.requiredHours,
+      allowedHours: trainingDefault(input.kind, modifier).hours
+    });
     return input;
   }
 
@@ -195,6 +255,13 @@ export class AllocationAuthorityService {
     if (!project) throw new Error("Project not found.");
     const ownerActor = await fromUuid(project.owner.uuid);
     if (!ownerActor?.testUserPermission(user, "OWNER")) throw new Error("You do not control this Project owner.");
+  }
+
+  async #authorizeSourceItemRoll(userId, projectId) {
+    const user = game.users.get(userId);
+    if (!user?.active) throw new Error("Requesting player is unavailable.");
+    if (user.isGM) return;
+    await this.#authorizeProjectOwner(userId, projectId);
   }
 
   async #authorizeProjectOwner(userId, projectId) {

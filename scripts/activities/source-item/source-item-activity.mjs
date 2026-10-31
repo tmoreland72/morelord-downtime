@@ -17,17 +17,39 @@ export function sourcingBonus({ investmentGp = 100, weeks = 1 } = {}) {
   return (goldSteps + weekSteps) * 2;
 }
 
-export function persuasionPriceAdjustment(total) {
-  const value = Number(total);
-  if (value <= 1) return 0.25;
-  if (value <= 5) return 0.20;
-  if (value <= 8) return 0.10;
-  if (value <= 11) return 0;
-  if (value <= 13) return -0.05;
-  if (value <= 15) return -0.10;
-  if (value <= 17) return -0.15;
-  if (value <= 19) return -0.20;
-  return -0.25;
+/** Price change from the Persuasion total compared with the sourcing DC. Poor rolls stop at +10%. Good rolls stop at −25%. */
+export const PERSUASION_PRICE_TIERS = Object.freeze([
+  { label: "Fail by 5 or more", adjustment: 0.10, applies: margin => margin <= -5 },
+  { label: "Fail by 1 to 4", adjustment: 0.05, applies: margin => margin <= -1 },
+  { label: "Meet the DC, or beat it by 1 to 4", adjustment: 0, applies: margin => margin <= 4 },
+  { label: "Beat the DC by 5 to 9", adjustment: -0.10, applies: margin => margin <= 9 },
+  { label: "Beat the DC by 10 to 14", adjustment: -0.20, applies: margin => margin <= 14 },
+  { label: "Beat the DC by 15 or more", adjustment: -0.25, applies: () => true }
+]);
+
+export function persuasionPriceTier(total, dc) {
+  const score = Number(total);
+  const difficulty = Number(dc);
+  if (!Number.isFinite(score) || !Number.isFinite(difficulty)) throw new Error("The Persuasion total is not a number.");
+  const margin = score - difficulty;
+  return PERSUASION_PRICE_TIERS.find(tier => tier.applies(margin)) ?? PERSUASION_PRICE_TIERS.at(-1);
+}
+
+export function persuasionPriceAdjustment(total, dc) {
+  return persuasionPriceTier(total, dc).adjustment;
+}
+
+export function formatPriceAdjustment(adjustment) {
+  const percent = Math.round(Number(adjustment) * 100);
+  return percent > 0 ? `+${percent}%` : `${percent}%`;
+}
+
+/** Successful finds name the Project location. A blank location says so and does not ask for a pickup. */
+export function sourceItemCollectionNotice({ locationId = null, locationName = null } = {}) {
+  const assigned = String(locationId ?? "").trim();
+  if (!assigned) return { assigned: false, message: "No location is assigned." };
+  const name = String(locationName ?? "").trim() || assigned;
+  return { assigned: true, message: `The item must be picked up at ${name}.` };
 }
 
 export function sourceItemPriceFormula(rarity) {
@@ -110,12 +132,21 @@ export function applySourceItemPersuasion(project, { naturalRoll, skillModifier 
   if (sourceItem.persuasion) throw new Error("Persuasion has already been attempted for this offer.");
   const resolved = structuredClone(project);
   const total = Number(naturalRoll) + Number(skillModifier);
-  const adjustment = persuasionPriceAdjustment(total);
+  const tier = persuasionPriceTier(total, sourceItem.dc);
+  const adjustment = tier.adjustment;
   const adjust = price => Math.max(1, Math.round(Number(price) * (1 + adjustment)));
   const outcome = resolved.metadata.sourceItem.outcome;
   if (outcome.targetPriceGp != null) outcome.targetPriceGp = adjust(outcome.targetPriceGp);
   outcome.alternatives = outcome.alternatives.map(item => ({ ...item, priceGp: adjust(item.priceGp) }));
-  resolved.metadata.sourceItem.persuasion = { naturalRoll: Number(naturalRoll), skillModifier: Number(skillModifier), total, adjustment };
+  resolved.metadata.sourceItem.pendingPersuasion = false;
+  resolved.metadata.sourceItem.persuasion = {
+    naturalRoll: Number(naturalRoll),
+    skillModifier: Number(skillModifier),
+    total,
+    dc: Number(sourceItem.dc),
+    adjustment,
+    tierLabel: tier.label
+  };
   appendHistory(resolved, "source-item-persuasion", { total, adjustment });
   return resolved;
 }
@@ -124,5 +155,6 @@ export function sourceItemSummary(project) {
   const sourceItem = project.metadata?.sourceItem;
   const elapsed = project.progress.elapsed;
   if (sourceItem?.outcome) return `${sourceItem.target.name}: ${sourceItem.outcome.success ? "found" : `${sourceItem.outcome.alternatives.length} alternatives offered`}`;
+  if (sourceItem?.pendingRoll) return `${sourceItem?.target?.name ?? project.name}: awaiting ${sourceItem.checkSkill === "inv" ? "Investigation" : "Arcana"} roll`;
   return `${sourceItem?.target?.name ?? project.name}: ${elapsed.completedDays} / ${elapsed.requiredDays} days`;
 }

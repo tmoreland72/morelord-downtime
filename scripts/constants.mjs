@@ -8,4 +8,4 @@ export const PROJECT_STATUSES = Object.freeze([
 ]);
 
 export const PROGRESS_MODES = Object.freeze(["effort", "elapsed", "hybrid"]);
-export const SESSION_STATUSES = Object.freeze(["draft", "upcoming", "active", "finalized", "cancelled"]);
+export const SESSION_STATUSES = Object.freeze(["pending", "active", "finalized", "cancelled"]);

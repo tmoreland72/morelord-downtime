@@ -3,16 +3,16 @@ import assert from "node:assert/strict";
 import { Dnd5eProficiencyAdapter } from "../scripts/adapters/dnd5e-proficiency-adapter.mjs";
 
 const config = {
-  skills: { ste: { label: "Stealth" } },
-  enrichmentLookup: { languages: { common: "Common", dwarvish: "Dwarvish" } },
+  skills: { ste: { label: "Stealth" }, prc: { label: "Perception" } },
+  enrichmentLookup: { languages: { common: "Common", dwarvish: "Dwarvish", thievescant: "Thieves' Cant" } },
   armorProficiencies: { lgt: "Light Armor" }, armorIds: { plate: "Item.plate" }, shieldIds: {},
   weaponProficiencies: { sim: "Simple Weapons" }, weaponIds: { dagger: "Item.dagger" },
-  toolProficiencies: { art: "Artisan's Tools" }, tools: { thief: { id: "Item.thief", ability: "dex" } }
+  toolProficiencies: { art: "Artisan's Tools" }, tools: { thief: { id: "Item.thief", ability: "dex" }, disguisekit: { id: "Item.disguise", ability: "cha", label: "Disguise Kit" } }
 };
-const documents = { "Item.plate": { name: "Plate Armor" }, "Item.dagger": { name: "Dagger" }, "Item.thief": { name: "Thieves' Tools" } };
+const documents = { "Item.plate": { name: "Plate Armor" }, "Item.dagger": { name: "Dagger" }, "Item.thief": { name: "Thieves' Tools" }, "Item.disguise": { name: "Disguise Kit" } };
 const adapter = new Dnd5eProficiencyAdapter({ config, resolveUuid: uuid => documents[uuid], localize: value => value });
 
-test("adapter flattens system proficiency families and filters by an instructor's actual data", async () => {
+test("training choices follow the configured source list, including entries beyond a fixed catalog", async () => {
   const actor = {
     uuid: "Actor.instructor",
     system: {
@@ -21,10 +21,15 @@ test("adapter flattens system proficiency families and filters by an instructor'
     }
   };
   const choices = await adapter.listTrainingChoices({ actors: [actor] });
+  assert.ok(choices.some(choice => choice.value === "skillProficiency:prc" && choice.label === "Perception"));
+  assert.ok(choices.some(choice => choice.value === "language:thievescant" && choice.label === "Thieves' Cant"));
+  assert.ok(choices.some(choice => choice.value === "toolProficiency:disguisekit" && choice.label === "Disguise Kit"));
   assert.ok(choices.some(choice => choice.value === "language:dwarvish" && choice.instructorUuids === actor.uuid));
   assert.ok(choices.some(choice => choice.value === "toolProficiency:thief" && choice.label === "Thieves' Tools" && choice.instructorUuids === actor.uuid));
-  assert.ok(choices.some(choice => choice.value === "weaponMastery:dagger" && choice.instructorUuids === actor.uuid));
+  assert.ok(choices.some(choice => choice.value === "weaponMastery:dagger" && choice.id === "dagger" && choice.instructorUuids === actor.uuid));
+  assert.ok(choices.some(choice => choice.value === "weaponProficiency:dagger" && choice.id === "dagger"));
   assert.ok(choices.some(choice => choice.value === "armorProficiency:plate" && choice.instructorUuids === ""));
+  assert.equal(choices.some(choice => choice.value === "language:sign"), false);
 });
 
 test("adapter awards set and mapping proficiencies, creating a missing tool record", async () => {
