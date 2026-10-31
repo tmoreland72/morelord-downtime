@@ -26,6 +26,10 @@ import { SOURCE_ITEM_ACTIVITY_ID, createSourceItemProject, sourceItemSummary } f
 import { SOURCE_ITEM_PERSUASION_TYPE, SOURCE_ITEM_ROLL_TYPE, installSourceItemRollCards } from "./activities/source-item/source-item-roll-request.mjs";
 import { SourceItemResolutionService } from "./activities/source-item/source-item-resolution-service.mjs";
 import { SourceItemProjectApp } from "./apps/source-item-app.mjs";
+import { XgeResolutionService } from "./activities/xge/xge-resolution-service.mjs";
+import { registerXgeActivities } from "./activities/xge/register-xge.mjs";
+import { XGE_ROLL_TYPE, installXgeRollCards } from "./activities/xge/xge-roll-request.mjs";
+import { XgeProjectApp } from "./apps/xge-project-app.mjs";
 import { MarketplaceSourcingAdapter } from "./adapters/marketplace-sourcing-adapter.mjs";
 import { RESEARCH_ACTIVITY_ID, RecipeResearchService } from "./activities/research/research-activity.mjs";
 import { ResearchProjectApp } from "./apps/research-project-app.mjs";
@@ -60,6 +64,7 @@ let dashboardApp = null;
 let trainingApi = null;
 let commissionApi = null;
 let sourceItemApi = null;
+let xgeApi = null;
 const sessions = new SessionService({ repository });
 const segments = new SegmentService({
   repository,
@@ -97,7 +102,8 @@ const allocationAuthority = new AllocationAuthorityService({
   getTraining: () => trainingApi,
   getCommission: () => commissionApi,
   getSourceItem: () => sourceItemApi,
-  getResearch: () => researchApi
+  getResearch: () => researchApi,
+  getXge: () => xgeApi
 });
 
 function readCraftingProjects(actor) {
@@ -331,6 +337,25 @@ Hooks.once("ready", () => {
     rollSkill: (actor, skill, options) => getCoreApi()?.rolls?.skill(actor, skill, options),
     applyRoll: (projectId, roll, options) => allocationAuthority.applySourceItemRoll(projectId, roll, options?.messageId),
     applyPersuasion: (projectId, roll, options) => allocationAuthority.applySourceItemPersuasion(projectId, roll, options?.messageId)
+  });
+  const xge = new XgeResolutionService({
+    projects,
+    getActor: uuid => fromUuid(uuid),
+    getLocation: id => getCoreApi()?.locations?.get?.(id) ?? null,
+    getRequests: () => getCoreApi()?.chatRequests
+  });
+  xgeApi = xge;
+  registerXgeActivities(activities, xge);
+  XgeProjectApp.configure({
+    locations: coreLocations,
+    xge: { createProject: data => allocationAuthority.createXge(data) },
+    onCreated: () => dashboardApp?.render({ force: true })
+  });
+  getCoreApi()?.chatRequests?.register?.(XGE_ROLL_TYPE, declineAutomaticRoll);
+  installXgeRollCards({
+    hooks: Hooks,
+    rollSkill: (actor, skill, options) => getCoreApi()?.rolls?.skill(actor, skill, options),
+    applyRoll: (projectId, total, options) => allocationAuthority.applyXgeRoll(projectId, total, options?.messageId)
   });
   allocationAuthority.start();
   DowntimeDashboardApp.configure({ projects, segments, sessions, allocationAuthority, locations: coreLocations, training, activities, craftworksProjects });

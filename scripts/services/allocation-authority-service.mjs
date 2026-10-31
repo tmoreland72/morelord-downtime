@@ -4,7 +4,7 @@ import { assertPlayerTrainingHours, trainingDefault } from "../domain/project-de
 const CHANNEL = `module.${MODULE_ID}`;
 
 export class AllocationAuthorityService {
-  constructor({ segments, projects, sessions, isPrimaryGm, getTraining = () => null, getCommission = () => null, getSourceItem = () => null, getResearch = () => null, timeoutMs = 10000 }) {
+  constructor({ segments, projects, sessions, isPrimaryGm, getTraining = () => null, getCommission = () => null, getSourceItem = () => null, getResearch = () => null, getXge = () => null, timeoutMs = 10000 }) {
     this.segments = segments;
     this.projects = projects;
     this.sessions = sessions;
@@ -12,6 +12,7 @@ export class AllocationAuthorityService {
     this.getCommission = getCommission;
     this.getSourceItem = getSourceItem;
     this.getResearch = getResearch;
+    this.getXge = getXge;
     this.isPrimaryGm = isPrimaryGm;
     this.timeoutMs = timeoutMs;
     this.pending = new Map();
@@ -56,6 +57,17 @@ export class AllocationAuthorityService {
   async createResearch(input) {
     if (game.user.isGM) return this.getResearch().createProject(input);
     return this.#request("research", input);
+  }
+
+  async createXge(input) {
+    if (game.user.isGM) return this.getXge().createProject(input, { isGm: true });
+    return this.#request("xge", input);
+  }
+
+  async applyXgeRoll(projectId, total, messageId = null) {
+    const input = { projectId: String(projectId), total, messageId };
+    if (game.user.isGM) return this.getXge().applyStoredRoll(input.projectId, input.total, { messageId: input.messageId });
+    return this.#request("xgeRoll", input);
   }
 
   async updateSourceItem(projectId, input) {
@@ -182,6 +194,14 @@ export class AllocationAuthorityService {
       } else if (kind === "sourceItemPersuasionRoll") {
         await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
         result = await this.getSourceItem().applyPersuasion(message.input.projectId, message.input.roll, { messageId: message.input.messageId });
+      } else if (kind === "xge") {
+        await this.#authorizeOwnedActor(message.userId, message.input.owner?.uuid);
+        const requesterIsGm = game.users.get(message.userId)?.isGM === true;
+        const input = requesterIsGm ? message.input : { ...message.input, nobilityAccess: false, waiveLocation: false, allowHighStake: false };
+        result = await this.getXge().createProject(input, { isGm: requesterIsGm });
+      } else if (kind === "xgeRoll") {
+        await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
+        result = await this.getXge().applyStoredRoll(message.input.projectId, message.input.total, { messageId: message.input.messageId });
       } else if (kind === "planning") {
         await this.#authorizePlanning(message.userId, message.input);
         result = await this.sessions.planProject(message.input.sessionId, message.input.projectId);

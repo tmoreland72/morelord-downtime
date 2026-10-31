@@ -1,7 +1,8 @@
 import { advanceElapsedDay, appendHistory, applyEffort, createProject } from "../domain/project.mjs";
-import { recordSpentHours, releaseProjectHours } from "../domain/segment.mjs";
+import { recordSpentDays, recordSpentHours, releaseProjectHours } from "../domain/segment.mjs";
 import { LABOR_DAY_HOURS } from "../domain/labor-time.mjs";
 import { SOURCE_ITEM_ACTIVITY_ID } from "../activities/source-item/source-item-activity.mjs";
+import { elapsedDayApplies, xgePolicy } from "../activities/xge/xge-rules.mjs";
 
 function releaseTrainingHours(state, projectId) {
   for (const segment of Object.values(state.segments ?? {})) {
@@ -166,16 +167,12 @@ export class ProjectService {
     }
     const activeSession = Object.values(state.sessions).find(session => session?.status === "active") ?? null;
     const dayLimit = activeSession?.days;
-    if (activeSession && dayLimit != null && dayLimit !== "") {
-      const days = Number(dayLimit);
-      if (Number.isInteger(days) && days >= 1) {
-        const used = Number(activeSession.daysUsed ?? 0);
-        if (used >= days) throw new Error("This Session has used all of its days. Hour-based work can continue until the Session is finalized.");
-        activeSession.daysUsed = used + 1;
-      }
-    }
+    const hasDayBudget = activeSession && dayLimit != null && dayLimit !== "" && Number.isInteger(Number(dayLimit)) && Number(dayLimit) >= 1;
+    const sessionDaysBlocked = Boolean(hasDayBudget && Number(activeSession.daysUsed ?? 0) >= Number(dayLimit));
+    if (hasDayBudget && !sessionDaysBlocked) activeSession.daysUsed = Number(activeSession.daysUsed ?? 0) + 1;
     const changed = [];
     for (const [id, existing] of Object.entries(state.projects)) {
+      if (!elapsedDayApplies(existing, { session: activeSession, sessionDaysBlocked })) continue;
       let project = advanceElapsedDay(existing, { dayKey, at: this.now() });
       if (existing.status !== project.status && ["completed", "awaiting-collection"].includes(project.status)) {
         const activity = this.activityRegistry?.get(project.activityType);
@@ -184,11 +181,15 @@ export class ProjectService {
       state.projects[id] = project;
       const daysApplied = project.progress.elapsed.completedDays - existing.progress.elapsed.completedDays;
       if (daysApplied > 0) chargeSourceItemSessionTime(state, project, daysApplied, activeSession, this.now());
+      if (daysApplied > 0 && xgePolicy(project.activityType) === "present") notePresenceDay(state, project, activeSession, this.now());
       if (daysApplied > 0 || project.status !== existing.status) {
         const copy = structuredClone(project);
         if (daysApplied > 0) copy.elapsedDaysApplied = daysApplied;
         changed.push(copy);
       }
+    }
+    if (sessionDaysBlocked && !changed.some(project => xgePolicy(project.activityType) === "away")) {
+      throw new Error("This Session has used all of its days. Hour-based work can continue until the Session is finalized.");
     }
     state.consumedDayKeys.push(dayKey);
     if (state.consumedDayKeys.length > 1000) state.consumedDayKeys = state.consumedDayKeys.slice(-1000);
@@ -216,6 +217,24 @@ function chargeSourceItemSessionTime(state, project, daysApplied, activeSession,
     recipeName: project.metadata?.sourceItem?.target?.name ?? project.name,
     activityId: SOURCE_ITEM_ACTIVITY_ID,
     days: daysApplied
+  });
+  state.segments[result.segment.id] = result.segment;
+}
+
+function notePresenceDay(state, project, activeSession, at) {
+  if (!activeSession) return;
+  const actorUuid = project.owner?.uuid;
+  if (!actorUuid) return;
+  const segment = (activeSession.segmentIds ?? [])
+    .map(id => state.segments[id])
+    .find(entry => entry?.status === "open" && entry.participants.some(participant => participant.actorUuid === actorUuid));
+  if (!segment) return;
+  const result = recordSpentDays(segment, {
+    actorUuid,
+    days: 1,
+    projectId: project.id,
+    at,
+    activityId: project.activityType
   });
   state.segments[result.segment.id] = result.segment;
 }

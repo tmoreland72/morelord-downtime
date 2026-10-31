@@ -157,13 +157,15 @@ Node tests, no Foundry, for the rules. A later Dev1 pass checks the windows.
 - Gold is recorded at the start. Cancel does not refund it. A Gambling stake of 0 is rejected.
 - `lore-research` does not replace **Research Drakkenheim Recipes**.
 
-## Open questions
+## Resolved
 
-1. Are the other six activities 7 days, or the book's 5-day workweek?
-2. Is Persuasion an allowed Religious Service check, or Religion only?
-3. Which activities use presence allocation, and which should move on **Advance Day**?
-4. What is the complication trigger, and the chance, for each activity?
-5. Confirm outcome bands and gp amounts for Crime, Gambling, Pit Fighting, and Research.
-6. Should Pit Fighting, Gambling, or Carousing wait for a new Core capability?
-7. Should Relaxation remove an extra Exhaustion level under the 2024 rest rules?
-8. Should payouts move coins through Marketplace, or only record an amount the GM pays?
+Troy's answers are what the module implements.
+
+- Every activity is 7 days.
+- Religious Service is Religion or Persuasion, and the location needs a Temple.
+- Research needs a Library. Research and Relaxation advance on **Advance Day** with no Session. The other five advance only while an active Session is at the Project's location and includes the character.
+- Crime complications happen on exactly one successful check. The other activities use a 10% chance. Relaxation has no book trigger, so it uses that 10% chance.
+- Gold uses the book's amounts. Carousing is 10/50/250 gp. Crime costs 25 gp. Gambling stakes are 10 to 1,000 gp. Research is 50 gp, plus 100 gp for each +1 up to +6. Relaxation costs 7 gp, one modest day for each of the 7 days.
+- Carousing, Gambling, and Pit Fighting accept any location. No new capability was added.
+- Relaxation removes every Exhaustion level. The book's other benefits are recorded for the GM: advantage on saves against long-acting diseases and poisons during the rest, and a choice to end one effect that blocks hit-point recovery or to restore one reduced ability score.
+- Costs and winnings change the character's currency. A cost the character cannot pay is refused with the amount they have. Upper-class carousing still needs a GM to confirm access to the local nobility. A stake above 1,000 gp needs a GM as well.

@@ -104,3 +104,27 @@ export function recordSpentHours(source, { actorUuid, hours: requestedHours, pro
   segment.allocations.push(allocation);
   return { segment, allocation, exceeded: participant.allocatedHours > participant.availableHours };
 }
+
+/** A presence activity spends a Session day without taking hours from the hour pool. */
+export function recordSpentDays(source, { actorUuid, days = 1, projectId, at = Date.now(), activityId = null } = {}) {
+  const segment = clone(source);
+  if (segment.status !== "open") throw new Error("Only an active Downtime Session can record spent time.");
+  const spentDays = Number(days);
+  if (!Number.isFinite(spentDays) || spentDays <= 0) throw new Error("Spent days must be greater than zero.");
+  const participant = segment.participants.find(entry => entry.actorUuid === String(actorUuid));
+  if (!participant) throw new Error(`Actor '${actorUuid}' is not part of this Downtime Session.`);
+  const allocation = {
+    id: `${segment.id}:${segment.allocations.length + 1}`,
+    projectId: String(projectId),
+    participantActorUuids: [participant.actorUuid],
+    hours: 0,
+    days: spentDays,
+    createdAt: at,
+    source: "xge",
+    recipeId: null,
+    recipeName: null,
+    activityId: activityId == null ? null : String(activityId)
+  };
+  segment.allocations.push(allocation);
+  return { segment, allocation };
+}
