@@ -8,7 +8,7 @@ import { ProjectService } from "../scripts/services/project-service.mjs";
 import { createSourceItemProject } from "../scripts/activities/source-item/source-item-activity.mjs";
 import { createCommissionProject } from "../scripts/activities/commission/commission-activity.mjs";
 import { formatHistory } from "../scripts/ui/history.mjs";
-import { sessionSpends } from "../scripts/ui/session-spends.mjs";
+import { sessionJournal, sessionSpends } from "../scripts/ui/session-spends.mjs";
 
 function world() {
   let stored = null;
@@ -125,6 +125,96 @@ test("Session History names each person's hours or days without internal ids", (
     "Brom 4 hours on Learn Dwarvish"
   ]);
   assert.equal(rows.some(row => `${row.who} ${row.amount} ${row.what} ${row.when}`.includes("Actor.")), false);
+});
+
+test("Session History lists every change in chronological order", () => {
+  const rows = sessionJournal({
+    session: {
+      startedAt: 1_000,
+      finalizedAt: null,
+      segmentIds: ["seg"],
+      participants: [
+        { actorUuid: "Actor.aric", name: "Aric" },
+        { actorUuid: "Actor.brom", name: "Brom" }
+      ]
+    },
+    segments: [{
+      id: "seg",
+      participants: [
+        { actorUuid: "Actor.aric", name: "Aric" },
+        { actorUuid: "Actor.brom", name: "Brom" }
+      ],
+      allocations: [
+        { projectId: "train", participantActorUuids: ["Actor.aric", "Actor.brom"], hours: 4, createdAt: 1_500 },
+        { projectId: "carouse", participantActorUuids: ["Actor.aric"], days: 1, hours: 0, createdAt: 2_500 }
+      ]
+    }],
+    projects: [
+      {
+        id: "early",
+        name: "Old Carousing",
+        activityType: "carousing",
+        owner: { uuid: "Actor.aric", name: "Aric" },
+        history: [{ at: 100, type: "created", data: {} }]
+      },
+      {
+        id: "train",
+        name: "Learn Dwarvish",
+        activityType: "training",
+        owner: { uuid: "Actor.aric", name: "Aric" },
+        metadata: { training: { proficiencyLabel: "Dwarvish" } },
+        history: [
+          { at: 1_200, type: "created", data: {} },
+          { at: 1_800, type: "proficiency-awarded", data: {} }
+        ]
+      },
+      {
+        id: "research",
+        name: "Research",
+        activityType: "lore-research",
+        owner: { uuid: "Actor.aric", name: "Aric" },
+        progress: { elapsed: { completedDays: 1, requiredDays: 7 } },
+        history: [{ at: 2_200, type: "elapsed-day", data: { days: 1 } }]
+      },
+      {
+        id: "carouse",
+        name: "Carousing",
+        activityType: "carousing",
+        owner: { uuid: "Actor.aric", name: "Aric" },
+        metadata: {
+          xge: {
+            currencyNote: "Aric pays 10 gp for Carousing.",
+            checks: [{ label: "Persuasion", total: 16, dc: null }]
+          }
+        },
+        history: [
+          { at: 1_400, type: "created", data: {} },
+          { at: 3_000, type: "xge-resolved", data: { summary: "One allied contact.", complication: "A rumor sticks to you." } },
+          { at: 3_100, type: "completed", data: {} }
+        ]
+      },
+      {
+        id: "stranger",
+        name: "Someone Else",
+        owner: { uuid: "Actor.other", name: "Other" },
+        history: [{ at: 1_600, type: "created", data: {} }]
+      }
+    ]
+  });
+  assert.deepEqual(rows.map(row => `${row.who} | ${row.project} | ${row.change} | ${row.result}`), [
+    "Aric | Learn Dwarvish | Project started | ",
+    "Aric | Carousing | Project started | Aric pays 10 gp for Carousing.",
+    "Aric | Learn Dwarvish | Spent 4 hours | ",
+    "Brom | Learn Dwarvish | Spent 4 hours | ",
+    "Aric | Learn Dwarvish | Training completed | Dwarvish",
+    "Aric | Research | Advance Day added 1 day | 1 of 7 days",
+    "Aric | Carousing | Spent 1 day | ",
+    "Aric | Carousing | Persuasion 16 | ",
+    "Aric | Carousing | Outcome recorded | One allied contact. Complication: A rumor sticks to you.",
+    "Aric | Carousing | Project completed | "
+  ]);
+  assert.equal(rows.some(row => row.project === "Old Carousing" || row.project === "Someone Else"), false);
+  assert.equal(rows.some(row => `${row.who} ${row.project} ${row.change}`.includes("Actor.")), false);
 });
 
 test("session history names commissioning and sourcing without internal ids", async () => {

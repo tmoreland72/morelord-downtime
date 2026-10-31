@@ -5,7 +5,7 @@ import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { titleCase } from "../ui/formatting.mjs";
 import { getModuleApi } from "../integrations/core-api.mjs";
 import { formatHistory } from "../ui/history.mjs";
-import { sessionSpends } from "../ui/session-spends.mjs";
+import { sessionJournal } from "../ui/session-spends.mjs";
 import { PERSUASION_PRICE_TIERS, formatPriceAdjustment, sourceItemCollectionNotice } from "../activities/source-item/source-item-activity.mjs";
 import { isPresenceProject } from "../domain/presence-focus.mjs";
 
@@ -37,7 +37,7 @@ export class SessionDetailApp extends DetailApplication {
       this.constructor.services.segments.list(),
       this.constructor.services.projects.list()
     ]);
-    const spends = sessionSpends({
+    const historyEntries = sessionJournal({
       session,
       segments,
       projects,
@@ -52,8 +52,8 @@ export class SessionDetailApp extends DetailApplication {
         locationName: locations.find(location => location.id === session.locationId)?.name ?? "No Location",
         participantSummary: session.participants.map(entry => entry.name ?? entry.actorUuid).join(", "),
         activitySummary: session.availableActivities.map(id => this.constructor.services.activities.get(id)?.name ?? titleCase(id)).join(", ") || "No new Projects",
-        spends,
-        hasSpends: spends.length > 0
+        historyEntries,
+        hasHistory: historyEntries.length > 0
       }
     };
   }

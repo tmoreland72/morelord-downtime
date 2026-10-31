@@ -93,7 +93,15 @@ export function applyXgeCheck(project, total, { d100 = null, d6 = null, at = Dat
   }
   const score = Number(total);
   if (!Number.isFinite(score)) throw new Error("The check total is missing.");
-  xge.checks[index].total = score;
+  const waiting = xge.checks[index];
+  waiting.total = score;
+  const dc = waiting.dc == null ? null : Number(waiting.dc);
+  appendHistory(next, "xge-check", {
+    label: waiting.label,
+    total: score,
+    dc,
+    success: dc == null ? null : score >= dc
+  }, at);
   if (xge.checks.some(entry => entry.total == null)) return { project: next, done: false };
   const outcome = resolveXgeOutcome(next);
   xge.outcome = outcome;
