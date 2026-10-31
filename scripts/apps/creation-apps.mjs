@@ -146,7 +146,7 @@ export class TrainingProjectApp extends DowntimeApplication {
     const project = this.projectId ? await this.constructor.services.projects.get(this.projectId) : null;
     const training = project?.metadata?.training ?? null;
     const actors = listCharacterActors();
-    const trainingChoices = (await this.constructor.services.proficiencies.listTrainingChoices({ actors })).map(choice => ({
+    const trainingChoices = (await this.constructor.services.proficiencies.listTrainingChoices({ actors, retain: training })).map(choice => ({
       ...choice,
       selected: training?.kind === choice.kind && training?.proficiencyId === choice.id
     }));

@@ -19,7 +19,7 @@ export function projectTypeEntries() {
       "None in Downtime. A failed check still spends its hours, and cancelling the craft does not return time already recorded."
     ]),
     entry("training", "Training", [
-      "The student learns one skill, language, tool, weapon, armor, or weapon mastery from the world's Configure Sources list.",
+      "The student learns one 2024 skill, language, tool, weapon, armor training, or weapon mastery. The list does not follow Configure Sources.",
       "Languages and tools take (10 minus a positive Intelligence modifier) workweeks, at least one, times 40 hours. An Intelligence modifier of 0 or less is 400 hours. Other subjects use that same hour count, and only a GM can change Required Hours. A character instructor spends the same hours as the student.",
       "No gold.",
       "No check. Finishing applies the proficiency to the student.",

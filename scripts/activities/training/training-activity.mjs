@@ -10,7 +10,7 @@ export function createTrainingProject(data = {}, options = {}) {
   const kind = rawKind === "tool" ? "toolProficiency" : rawKind;
   if (!TRAINING_KINDS.includes(kind)) throw new Error("Training kind must be a supported D&D5e proficiency or weapon mastery.");
   const proficiencyId = String(data.proficiencyId ?? "").trim();
-  const proficiencyLabel = String(data.proficiencyLabel ?? proficiencyId).trim();
+  const proficiencyLabel = String(data.proficiencyLabel ?? "").trim() || proficiencyId;
   if (!proficiencyId) throw new Error("Training requires a proficiency id.");
   const instructor = {
     mode: String(data.instructor?.mode ?? "none"),
