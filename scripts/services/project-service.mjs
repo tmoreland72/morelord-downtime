@@ -47,6 +47,15 @@ export class ProjectService {
     return structuredClone(project);
   }
 
+  async commit(project) {
+    this.#requireGm();
+    const state = await this.repository.read();
+    if (!state.projects[String(project?.id)]) throw new Error("Project not found.");
+    state.projects[project.id] = structuredClone(project);
+    await this.repository.write(state);
+    return structuredClone(state.projects[project.id]);
+  }
+
   async update(id, changes = {}) {
     this.#requireGm();
     const state = await this.repository.read();

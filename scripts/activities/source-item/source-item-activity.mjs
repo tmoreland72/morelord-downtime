@@ -124,5 +124,6 @@ export function sourceItemSummary(project) {
   const sourceItem = project.metadata?.sourceItem;
   const elapsed = project.progress.elapsed;
   if (sourceItem?.outcome) return `${sourceItem.target.name}: ${sourceItem.outcome.success ? "found" : `${sourceItem.outcome.alternatives.length} alternatives offered`}`;
+  if (sourceItem?.pendingRoll) return `${sourceItem?.target?.name ?? project.name}: awaiting ${sourceItem.checkSkill === "inv" ? "Investigation" : "Arcana"} roll`;
   return `${sourceItem?.target?.name ?? project.name}: ${elapsed.completedDays} / ${elapsed.requiredDays} days`;
 }

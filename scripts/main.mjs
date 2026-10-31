@@ -24,6 +24,7 @@ import { COMMISSION_ACTIVITY_ID, commissionSummary, createCommissionProject } fr
 import { addMorelordTool, getCoreApi, getCoreLocations, getModuleApi } from "./integrations/core-api.mjs";
 import { DOWNTIME_SCENE_TOOL } from "./integrations/downtime-scene-tool.mjs";
 import { SOURCE_ITEM_ACTIVITY_ID, createSourceItemProject, sourceItemSummary } from "./activities/source-item/source-item-activity.mjs";
+import { SOURCE_ITEM_ROLL_TYPE, installSourceItemRollCards } from "./activities/source-item/source-item-roll-request.mjs";
 import { SourceItemResolutionService } from "./activities/source-item/source-item-resolution-service.mjs";
 import { SourceItemProjectApp } from "./apps/source-item-app.mjs";
 import { MarketplaceSourcingAdapter } from "./adapters/marketplace-sourcing-adapter.mjs";
@@ -45,7 +46,11 @@ const craftTime = new CraftTimeService({
 craftTime.holdForBaseline();
 registerCraftTimeTracking(craftTime);
 const marketplaceSourcing = new MarketplaceSourcingAdapter();
-const sourceItemResolution = new SourceItemResolutionService({ catalog: marketplaceSourcing });
+const sourceItemResolution = new SourceItemResolutionService({
+  catalog: marketplaceSourcing,
+  getRequests: () => getCoreApi()?.chatRequests,
+  commit: project => projects.commit(project)
+});
 const trainingAwards = new TrainingAwardService({ proficiencyAdapter: proficiencies });
 const research = new RecipeResearchService();
 const researchApi = {
@@ -205,7 +210,7 @@ Hooks.once("ready", () => {
     edit: project => new SourceItemProjectApp({ projectId: project.id }).render({ force: true }),
     createProject: data => createSourceItemProject(data, { idFactory: () => foundry.utils.randomID() }),
     getSummary: sourceItemSummary,
-    onComplete: project => sourceItemResolution.resolve(project)
+    onComplete: project => sourceItemResolution.requestRoll(project)
   });
   activities.register({
     id: "crafting",
@@ -310,9 +315,21 @@ Hooks.once("ready", () => {
       if (!existing || existing.activityType !== SOURCE_ITEM_ACTIVITY_ID) throw new Error("Source Item Project not found.");
       const negotiated = await sourceItemResolution.negotiate(existing, roll);
       return projects.update(id, { metadata: negotiated.metadata });
+    },
+    applyRoll: async (id, roll, options) => {
+      const existing = await projects.get(id);
+      if (!existing || existing.activityType !== SOURCE_ITEM_ACTIVITY_ID) throw new Error("Source Item Project not found.");
+      return sourceItemResolution.applyRoll(existing, roll, options);
     }
   });
   sourceItemApi = sourceItem;
+  const sourceItemRequests = getCoreApi()?.chatRequests;
+  sourceItemRequests?.register?.(SOURCE_ITEM_ROLL_TYPE, async () => ({ accepted: false, reason: "Roll this skill check from the dialog." }));
+  installSourceItemRollCards({
+    hooks: Hooks,
+    rollSkill: (actor, skill, options) => getCoreApi()?.rolls?.skill(actor, skill, options),
+    applyRoll: (projectId, roll, options) => allocationAuthority.applySourceItemRoll(projectId, roll, options?.messageId)
+  });
   allocationAuthority.start();
   DowntimeDashboardApp.configure({ projects, segments, sessions, allocationAuthority, locations: coreLocations, training, activities, craftworksProjects });
   TrainingProjectApp.configure({

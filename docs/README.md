@@ -131,7 +131,9 @@ Commissions advance with campaign days. Commission is not an **Available Activit
 
 ### Source Item
 
-Requires Marketplace. Select a Common through Legendary magic item from the character's Marketplace wishlist, a Location, and Arcana or Investigation. The Location is required and is stored on the Project. See **Shared Locations**. Commit at least 100 gp and one week. Gold is spent immediately; extra gold and weeks improve the hidden check. Guidance and Help do not apply.
+Requires Marketplace. Select a Common through Legendary magic item from the character's Marketplace wishlist, a Location, and Arcana or Investigation. The Location is required and is stored on the Project. See **Shared Locations**. Commit at least 100 gp and one week. Gold is spent immediately; extra gold and weeks improve the check.
+
+When the weeks are finished, Downtime posts a **Source Item** roll request in chat for the owning player. Clicking **Roll** opens the normal skill roll dialog for Arcana or Investigation. The player makes that roll. A GM can click it when that player is offline. The same sourcing result is then revealed. The investment bonus is added to the roll.
 
 **Source Item** is also an **Available Activities** choice, checked per Session, like Crafting. On an active Session that includes it, the GM uses **Log Sourcing Time** to record hours a participant spent looking for an item. The same control is on an open Source Item Project. Those hours are added to that character's allocated Session time. A day advanced on the Project does not itself spend Session hours, and time logged while Source Item is not enabled is not applied later. Completion reveals an offer for the requested item or 1d4 Marketplace alternatives of the same or lower rarity. One unassisted Persuasion check can adjust offer prices. The initial investment is not refunded if the search fails; later edits can add investment or weeks but cannot reduce or redirect the committed investment.
 

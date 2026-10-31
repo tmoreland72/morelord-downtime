@@ -1,22 +1,42 @@
 import { applySourceItemPersuasion, resolveSourceItemProject, sourceItemPriceFormula } from "./source-item-activity.mjs";
+import { sourceItemRollCard } from "./source-item-roll-request.mjs";
+import { completeChatRoll } from "../../../../morelord-core/scripts/services/chat-roll-requests.js";
 
 export class SourceItemResolutionService {
-  constructor({ catalog }) { this.catalog = catalog; }
+  constructor({ catalog, getRequests = () => null, commit = async project => project }) {
+    this.catalog = catalog;
+    this.getRequests = getRequests;
+    this.commit = commit;
+  }
 
-  async resolve(project) {
-    const actor = await fromUuid(project.owner.uuid);
-    if (!actor) throw new Error("The Source Item owner could not be resolved.");
-    const skill = project.metadata.sourceItem.checkSkill;
-    const skillModifier = Number(actor.system?.skills?.[skill]?.total ?? actor.system?.skills?.[skill]?.mod ?? 0);
+  /** Post Core's roll request instead of rolling the skill check for the player. */
+  async requestRoll(project) {
+    if (project.metadata?.sourceItem?.outcome) return project;
+    const requests = this.getRequests();
+    if (typeof requests?.create !== "function") throw new Error("Morelord Core roll requests are unavailable. Update and enable Morelord Core.");
+    await requests.create(sourceItemRollCard(project));
+    const pending = structuredClone(project);
+    pending.metadata.sourceItem.pendingRoll = true;
+    return pending;
+  }
+
+  async applyRoll(project, check, { messageId = null } = {}) {
+    if (project.metadata?.sourceItem?.outcome) return project;
     const resolved = await resolveSourceItemProject(project, {
-      skillModifier,
-      rollD20: async () => (await new Roll("1d20").evaluate()).total,
+      skillModifier: check.skillModifier,
+      rollD20: async () => check.naturalRoll,
       rollPrice: rarity => this.#rollPrice(rarity),
       rollAlternativeCount: async () => (await new Roll("1d4").evaluate()).total,
       getAlternatives: (rarity, excludeUuid, count) => this.catalog.randomItems({ maxRarity: rarity, count, excludeUuids: [excludeUuid] })
     });
-    await this.#postResult(resolved);
-    return resolved;
+    resolved.metadata.sourceItem.pendingRoll = false;
+    const saved = await this.commit(resolved);
+    await this.#postResult(saved);
+    if (messageId && globalThis.game?.messages?.get) {
+      const message = game.messages.get(messageId);
+      if (message) await completeChatRoll(message, "");
+    }
+    return saved;
   }
 
   async negotiate(project, roll) {

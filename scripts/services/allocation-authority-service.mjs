@@ -69,6 +69,12 @@ export class AllocationAuthorityService {
     return this.#request("sourceItemPersuasion", input);
   }
 
+  async applySourceItemRoll(projectId, roll, messageId = null) {
+    const input = { projectId: String(projectId), roll, messageId };
+    if (game.user.isGM) return this.getSourceItem().applyRoll(input.projectId, input.roll, { messageId: input.messageId });
+    return this.#request("sourceItemRoll", input);
+  }
+
   async planProject(sessionId, projectId) {
     const input = { sessionId: String(sessionId), projectId: String(projectId) };
     if (game.user.isGM) return this.sessions.planProject(input.sessionId, input.projectId);
@@ -148,6 +154,9 @@ export class AllocationAuthorityService {
       } else if (kind === "sourceItemPersuasion") {
         await this.#authorizeProjectOwner(message.userId, message.input.projectId);
         result = await this.getSourceItem().negotiate(message.input.projectId, message.input.roll);
+      } else if (kind === "sourceItemRoll") {
+        await this.#authorizeSourceItemRoll(message.userId, message.input.projectId);
+        result = await this.getSourceItem().applyRoll(message.input.projectId, message.input.roll, { messageId: message.input.messageId });
       } else if (kind === "planning") {
         await this.#authorizePlanning(message.userId, message.input);
         result = await this.sessions.planProject(message.input.sessionId, message.input.projectId);
@@ -195,6 +204,13 @@ export class AllocationAuthorityService {
     if (!project) throw new Error("Project not found.");
     const ownerActor = await fromUuid(project.owner.uuid);
     if (!ownerActor?.testUserPermission(user, "OWNER")) throw new Error("You do not control this Project owner.");
+  }
+
+  async #authorizeSourceItemRoll(userId, projectId) {
+    const user = game.users.get(userId);
+    if (!user?.active) throw new Error("Requesting player is unavailable.");
+    if (user.isGM) return;
+    await this.#authorizeProjectOwner(userId, projectId);
   }
 
   async #authorizeProjectOwner(userId, projectId) {
