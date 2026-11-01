@@ -1,6 +1,6 @@
 # Morelord Downtime Changelog
 
-## 0.2.2
+## 0.3.0
 
 ### Fixed
 

@@ -1,4 +1,4 @@
-# Morelord Downtime 0.2.2
+# Morelord Downtime 0.3.0
 
 Crafting projects stay on the Downtime list at the scene being viewed. Source Item time is logged on the Session. Only a GM can change a Session.
 

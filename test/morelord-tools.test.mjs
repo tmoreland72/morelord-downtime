@@ -48,11 +48,11 @@ describe("Morelord Tools registration", { concurrency: false }, () => {
     assert.equal(DOWNTIME_SCENE_TOOL.onClick, openDowntimeSceneTool);
   });
 
-  test("requires Morelord Core 0.9.0", () => {
+  test("requires Morelord Core 0.8.2", () => {
     const manifest = JSON.parse(readFileSync(new URL("../module.json", import.meta.url), "utf8"));
     const core = manifest.relationships.requires.find(entry => entry.id === "morelord-core");
-    assert.equal(manifest.version, "0.2.2");
-    assert.equal(core.compatibility.minimum, "0.9.0");
+    assert.equal(manifest.version, "0.3.0");
+    assert.equal(core.compatibility.minimum, "0.8.2");
   });
 
   test("registers with Core tools when the registry exists", () => {
