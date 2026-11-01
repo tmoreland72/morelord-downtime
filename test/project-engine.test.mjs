@@ -102,22 +102,33 @@ test("deleting an unused Project tolerates legacy Sessions without planned Proje
   assert.deepEqual((await repository.read()).sessions.legacy.plannedProjectIds, []);
 });
 
-test("explicit deletion requires cancellation after progress and preserves spent Session allocations", async () => {
+test("explicit deletion requires cancellation after progress, and cancelling training returns its session hours", async () => {
   const { service, repository } = harness();
   const project = await service.create({ name: "Practice", activityType: "training", owner, status: "active", progress: { mode: "effort", effort: { requiredHours: 10 } } });
   await service.applyEffort(project.id, 1);
   const state = await repository.read();
   state.sessions.session = { id: "session", plannedProjectIds: [project.id] };
-  state.segments.segment = { id: "segment", allocations: [{ projectId: project.id, hours: 1 }] };
+  state.segments.segment = {
+    id: "segment",
+    participants: [
+      { actorUuid: "Actor.aric", allocatedHours: 1, availableHours: 4 },
+      { actorUuid: "Actor.brom", allocatedHours: 1, availableHours: 4 }
+    ],
+    allocations: [{ projectId: project.id, hours: 1, participantActorUuids: ["Actor.aric", "Actor.brom"] }]
+  };
   await repository.write(state);
   await assert.rejects(() => service.removeUnused(project.id, { allowCancelled: true }), /must be cancelled/);
   await service.cancel(project.id);
+  const released = await repository.read();
+  assert.deepEqual(released.segments.segment.allocations, []);
+  assert.equal(released.segments.segment.participants[0].allocatedHours, 0);
+  assert.equal(released.segments.segment.participants[1].allocatedHours, 0);
   await assert.rejects(() => service.removeUnused(project.id), /recorded progress/);
   assert.equal(await service.removeUnused(project.id, { allowCancelled: true }), true);
   assert.equal(await service.get(project.id), null);
   const remaining = await repository.read();
   assert.deepEqual(remaining.sessions.session.plannedProjectIds, []);
-  assert.deepEqual(remaining.segments.segment.allocations, [{ projectId: project.id, hours: 1 }]);
+  assert.deepEqual(remaining.segments.segment.allocations, []);
 });
 
 test("activities register as plugins rather than core workflow branches", () => {

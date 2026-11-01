@@ -1,8 +1,9 @@
-const titleCase = value => String(value).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/(^|\s)\S/g, letter => letter.toUpperCase());
+import { TRAINING_CATALOG, retainedTrainingChoice, trainingToolAbility } from "../activities/training/training-catalog.mjs";
+
 const asSet = value => new Set(value instanceof Set || Array.isArray(value) ? value : []);
 
 export class Dnd5eProficiencyAdapter {
-  constructor({ config = () => CONFIG.DND5E, resolveUuid = uuid => fromUuid(uuid), localize = key => game.i18n.localize(key) } = {}) {
+  constructor({ config = () => globalThis.CONFIG?.DND5E, resolveUuid = uuid => fromUuid(uuid), localize = key => game.i18n.localize(key) } = {}) {
     this.getConfig = typeof config === "function" ? config : () => config;
     this.resolveUuid = resolveUuid;
     this.localize = localize;
@@ -12,33 +13,12 @@ export class Dnd5eProficiencyAdapter {
     return ["artisanTool", "tool", "toolProficiency", "skillProficiency", "language", "armorProficiency", "weaponProficiency", "weaponMastery"].includes(kind);
   }
 
-  async listTrainingChoices({ actors = [] } = {}) {
-    const config = this.getConfig() ?? {};
-    const choices = [];
-    const addConfig = (values, kind, category) => {
-      for (const [id, data] of Object.entries(values ?? {})) {
-        choices.push(this.#choice(kind, id, this.localize(typeof data === "string" ? data : data?.label ?? id), category, actors));
-      }
-    };
-    const addDocuments = async (values, kind, category) => {
-      for (const [id, data] of Object.entries(values ?? {})) {
-        const uuid = typeof data === "string" ? data : data?.id;
-        const document = uuid ? await Promise.resolve(this.resolveUuid(uuid)).catch(() => null) : null;
-        const fallback = typeof data === "object" && data?.label ? this.localize(data.label) : titleCase(id);
-        choices.push(this.#choice(kind, id, document?.name ?? fallback, category, actors));
-      }
-    };
-
-    addConfig(config.skills, "skillProficiency", "Skill Proficiency");
-    addConfig(config.enrichmentLookup?.languages, "language", "Language");
-    addConfig(config.armorProficiencies, "armorProficiency", "Armor Proficiency");
-    await addDocuments({ ...(config.armorIds ?? {}), ...(config.shieldIds ?? {}) }, "armorProficiency", "Armor Proficiency");
-    addConfig(config.weaponProficiencies, "weaponProficiency", "Weapon Proficiency");
-    await addDocuments(config.weaponIds, "weaponProficiency", "Weapon Proficiency");
-    await addDocuments(config.weaponIds, "weaponMastery", "Weapon Mastery");
-    addConfig(config.toolProficiencies, "toolProficiency", "Tool Proficiency");
-    await addDocuments(config.tools, "toolProficiency", "Tool Proficiency");
-
+  async listTrainingChoices({ actors = [], retain = null } = {}) {
+    const choices = TRAINING_CATALOG.map(entry => this.#choice(entry.kind, entry.id, entry.label, entry.category, actors));
+    const saved = retainedTrainingChoice(retain);
+    if (saved && !choices.some(entry => entry.value === saved.value)) {
+      choices.push(this.#choice(saved.kind, saved.id, saved.label, saved.category, actors, true));
+    }
     return choices.sort((left, right) => left.label.localeCompare(right.label) || left.category.localeCompare(right.category));
   }
 
@@ -63,13 +43,14 @@ export class Dnd5eProficiencyAdapter {
     return { awarded: false, reason: "unsupported-training-kind" };
   }
 
-  #choice(kind, id, label, category, actors) {
+  #choice(kind, id, label, category, actors, retained = false) {
     return {
       value: `${kind}:${id}`,
       kind,
       id,
       label,
       category,
+      retained,
       instructorUuids: actors.filter(actor => this.actorKnows(actor, kind, id)).map(actor => actor.uuid).join("|")
     };
   }
@@ -86,7 +67,7 @@ export class Dnd5eProficiencyAdapter {
     const path = `system.${property}.${id}`;
     const update = current
       ? { [`${path}.value`]: Math.max(1, Number(current.value ?? 0)) }
-      : { [path]: { value: 1, ...(property === "tools" ? { ability: this.getConfig()?.tools?.[id]?.ability ?? "int" } : {}) } };
+      : { [path]: { value: 1, ...(property === "tools" ? { ability: this.getConfig()?.tools?.[id]?.ability ?? trainingToolAbility(id) ?? "int" } : {}) } };
     await actor.update(update);
     return { awarded: true, kind, proficiencyId: id, actorUuid: actor.uuid };
   }

@@ -5,6 +5,7 @@ import { ProjectRepository } from "../scripts/persistence/project-repository.mjs
 import { ProjectService } from "../scripts/services/project-service.mjs";
 import { SegmentService } from "../scripts/services/segment-service.mjs";
 import { canProgressTraining, createTrainingProject } from "../scripts/activities/training/training-activity.mjs";
+import { assertNpcInstructorSpecialty, filterNpcTrainingChoices, locationAllowsSpecialty, locationAllowsSpecialtyFallback } from "../scripts/domain/instructor-specialty.mjs";
 import { TrainingAwardService, applyTrainingAwardResult } from "../scripts/activities/training/training-award-service.mjs";
 
 function trainingHarness({ actor = null } = {}) {
@@ -71,6 +72,90 @@ test("provider instructors must expose the matching instructor capability", () =
   assert.equal(canProgressTraining(project, { segment: { source: "session", locationId: "waterdeep" }, participantActorUuids: ["Actor.aric"] }).passed, true);
 });
 
+test("an NPC instructor at Neverwinter can only teach that Location's Instructor specialty", () => {
+  const neverwinter = {
+    id: "neverwinter",
+    name: "Neverwinter",
+    capabilities: [{ type: "instructor", tier: "common", specialty: "sign" }]
+  };
+  const choices = filterNpcTrainingChoices([
+    { id: "sign", kind: "language", label: "Common Sign Language" },
+    { id: "dwarvish", kind: "language", label: "Dwarvish" },
+    { id: "ste", kind: "skillProficiency", label: "Stealth" }
+  ], neverwinter);
+  assert.deepEqual(choices.map(choice => choice.id), ["sign"]);
+  const project = proficiency => createTrainingProject({
+    kind: "language",
+    proficiencyId: proficiency,
+    owner: { uuid: "Actor.aric" },
+    instructor: { mode: "npc", name: "Chapel Interpreter" },
+    locationId: "neverwinter"
+  });
+  const context = proficiency => ({
+    segment: { locationId: "neverwinter" },
+    participantActorUuids: ["Actor.aric"],
+    location: neverwinter
+  });
+  assert.equal(canProgressTraining(project("dwarvish"), context("dwarvish")).passed, false);
+  assert.equal(canProgressTraining(project("sign"), context("sign")).passed, true);
+  assert.equal(locationAllowsSpecialty(neverwinter, "instructor", "sign"), true);
+  assert.throws(
+    () => assertNpcInstructorSpecialty({ instructor: { mode: "npc" }, locationId: "neverwinter", proficiencyId: "dwarvish" }, neverwinter),
+    /cannot teach that subject/
+  );
+  const openAcademy = { id: "academy", capabilities: [{ type: "instructor", specialty: "any" }] };
+  assert.equal(filterNpcTrainingChoices(choices.concat([{ id: "dwarvish" }]), openAcademy).length, 2);
+});
+
+test("specialty lists allow each stored key, an empty list allows every key, and a legacy string is one key", () => {
+  const several = { capabilities: [{ type: "instructor", specialty: ["sign", "dwarvish", "smith"] }] };
+  assert.equal(locationAllowsSpecialtyFallback(several, "instructor", "sign"), true);
+  assert.equal(locationAllowsSpecialtyFallback(several, "instructor", "dwarvish"), true);
+  assert.equal(locationAllowsSpecialtyFallback(several, "instructor", "smith"), true);
+  assert.equal(locationAllowsSpecialtyFallback(several, "instructor", "elvish"), false);
+  const open = { capabilities: [{ type: "instructor", specialty: [] }] };
+  assert.equal(locationAllowsSpecialtyFallback(open, "instructor", "elvish"), true);
+  assert.equal(locationAllowsSpecialtyFallback(open, "instructor", "sign"), true);
+  const legacy = { capabilities: [{ type: "instructor", specialty: "sign" }] };
+  assert.equal(locationAllowsSpecialtyFallback(legacy, "instructor", "sign"), true);
+  assert.equal(locationAllowsSpecialtyFallback(legacy, "instructor", "dwarvish"), false);
+
+  const providerProject = (proficiency, specialty) => createTrainingProject({
+    kind: "language",
+    proficiencyId: proficiency,
+    owner: { uuid: "Actor.aric" },
+    instructor: { mode: "provider", providerId: "academy" },
+    provider: { id: "academy", capabilities: [{ type: "instructor", specialty }] }
+  });
+  const context = { segment: { source: "session" }, participantActorUuids: ["Actor.aric"] };
+  assert.equal(canProgressTraining(providerProject("sign", ["sign", "dwarvish"]), context).passed, true);
+  assert.equal(canProgressTraining(providerProject("dwarvish", ["sign", "dwarvish"]), context).passed, true);
+  assert.equal(canProgressTraining(providerProject("elvish", ["sign", "dwarvish"]), context).passed, false);
+  assert.equal(canProgressTraining(providerProject("elvish", []), context).passed, true);
+  assert.equal(canProgressTraining(providerProject("sign", "sign"), context).passed, true);
+  assert.equal(canProgressTraining(providerProject("dwarvish", "sign"), context).passed, false);
+});
+
+test("NPC specialty checks use Core locationAllowsSpecialty when it is exposed", () => {
+  const prior = globalThis.MorelordCore;
+  const location = { id: "neverwinter", capabilities: [{ type: "instructor", specialty: "sign" }] };
+  globalThis.MorelordCore = {
+    locations: {
+      locationAllowsSpecialty: (place, type, key) => {
+        assert.equal(place, location);
+        assert.equal(type, "instructor");
+        assert.equal(key, "sign");
+        return true;
+      }
+    }
+  };
+  try {
+    assert.equal(locationAllowsSpecialty(location, "instructor", "sign"), true);
+  } finally {
+    globalThis.MorelordCore = prior;
+  }
+});
+
 test("a named NPC instructor requires the Project Location", () => {
   const project = createTrainingProject({
     kind: "language",
@@ -99,6 +184,61 @@ test("direct Project effort completion runs the training award lifecycle", async
   const completed = await projects.applyEffort(project.id, 2);
   assert.equal(completed.metadata.training.proficiencyAwarded, true);
   assert.equal(updates[0]["system.tools.smith.value"], 1);
+});
+
+test("a player training allocation spends the instructor's session hours too", async () => {
+  const { projects, segments } = trainingHarness();
+  const project = await projects.create(createTrainingProject({
+    kind: "language", proficiencyId: "dwarvish", requiredHours: 10,
+    owner: { uuid: "Actor.aric" },
+    instructor: { mode: "participant", actorUuid: "Actor.brom" }
+  }, { idFactory: () => "paired-training", now: () => 1 }));
+  const segment = await segments.create({
+    name: "Week", status: "open",
+    participants: [
+      { actorUuid: "Actor.aric", name: "Aric", availableHours: 8 },
+      { actorUuid: "Actor.brom", name: "Brom", availableHours: 8 }
+    ]
+  });
+  const allocated = await segments.allocate({
+    segmentId: segment.id, projectId: project.id, participantActorUuids: ["Actor.aric"], hours: 2
+  });
+  assert.deepEqual(allocated.allocation.participantActorUuids, ["Actor.aric", "Actor.brom"]);
+  assert.equal(allocated.segment.participants.find(entry => entry.actorUuid === "Actor.aric").allocatedHours, 2);
+  assert.equal(allocated.segment.participants.find(entry => entry.actorUuid === "Actor.brom").allocatedHours, 2);
+  const changed = await segments.allocate({
+    segmentId: segment.id, projectId: project.id, participantActorUuids: ["Actor.aric"], hours: 1
+  });
+  assert.equal(changed.segment.participants.find(entry => entry.actorUuid === "Actor.aric").allocatedHours, 3);
+  assert.equal(changed.segment.participants.find(entry => entry.actorUuid === "Actor.brom").allocatedHours, 3);
+  await projects.cancel(project.id);
+  const released = await segments.get(segment.id);
+  assert.equal(released.participants.find(entry => entry.actorUuid === "Actor.aric").allocatedHours, 0);
+  assert.equal(released.participants.find(entry => entry.actorUuid === "Actor.brom").allocatedHours, 0);
+  assert.equal(released.allocations.length, 0);
+});
+
+test("training is blocked when the instructor does not have enough session time", async () => {
+  const { projects, segments } = trainingHarness();
+  const project = await projects.create(createTrainingProject({
+    kind: "language", proficiencyId: "dwarvish", requiredHours: 10,
+    owner: { uuid: "Actor.aric" },
+    instructor: { mode: "participant", actorUuid: "Actor.brom" }
+  }, { idFactory: () => "short-instructor", now: () => 1 }));
+  const segment = await segments.create({
+    name: "Week", status: "open",
+    participants: [
+      { actorUuid: "Actor.aric", name: "Aric", availableHours: 8 },
+      { actorUuid: "Actor.brom", name: "Brom", availableHours: 1 }
+    ]
+  });
+  await assert.rejects(
+    () => segments.allocate({ segmentId: segment.id, projectId: project.id, participantActorUuids: ["Actor.aric"], hours: 2 }),
+    /Brom does not have enough remaining downtime hours/
+  );
+  const unchanged = await segments.get(segment.id);
+  assert.equal(unchanged.participants.every(entry => entry.allocatedHours === 0), true);
+  assert.equal((await projects.get(project.id)).progress.effort.completedHours, 0);
 });
 
 test("weapon proficiency and weapon mastery awards target specific D&D5e weapon traits", async () => {

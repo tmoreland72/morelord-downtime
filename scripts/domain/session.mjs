@@ -1,16 +1,44 @@
 import { SESSION_STATUSES } from "../constants.mjs";
+import { XGE_ACTIVITY_IDS } from "../activities/xge/xge-rules.mjs";
 
 const clone = value => structuredClone(value);
+
+const LEGACY_PENDING = new Set(["draft", "upcoming"]);
+
+/** Days is optional. A blank value stays blank. Hours are stored as given, or Days × 8 when only Days is provided. */
+export function sessionSchedule(raw = {}) {
+  const days = optionalDays(raw.days);
+  const plannedDurationHours = sessionHours(raw.plannedDurationHours, days);
+  const daysUsed = Math.max(0, Number(raw.daysUsed ?? 0));
+  return { days, plannedDurationHours, daysUsed: Number.isFinite(daysUsed) ? daysUsed : 0 };
+}
+
+function optionalDays(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const days = Number(value);
+  if (!Number.isInteger(days) || days < 1) throw new Error("Days must be a whole number of at least 1.");
+  return days;
+}
+
+function sessionHours(value, days) {
+  if (value === undefined || value === null || value === "") {
+    if (days == null) throw new Error("A Downtime Session requires hours.");
+    return days * 8;
+  }
+  const hours = Number(value);
+  if (!Number.isFinite(hours) || hours <= 0) throw new Error("Hours must be greater than 0.");
+  return hours;
+}
 
 export function createSession(raw = {}, { idFactory = () => crypto.randomUUID(), now = () => Date.now() } = {}) {
   const id = String(raw.id ?? idFactory()).trim();
   const name = String(raw.name ?? "").trim();
-  const status = String(raw.status ?? "draft");
+  const requestedStatus = String(raw.status ?? "pending");
+  const status = LEGACY_PENDING.has(requestedStatus) ? "pending" : requestedStatus;
   if (!id) throw new Error("A Downtime Session requires an id.");
   if (!name) throw new Error("A Downtime Session requires a name.");
   if (!SESSION_STATUSES.includes(status)) throw new Error(`Unknown Session status: ${status}.`);
-  const plannedDurationHours = Math.max(0, Number(raw.plannedDurationHours ?? 0));
-  if (!plannedDurationHours) throw new Error("A Downtime Session requires a planned duration in hours.");
+  const { days, plannedDurationHours, daysUsed } = sessionSchedule(raw);
   const participants = (raw.participants ?? []).map(entry => {
     const actorUuid = String(entry.actorUuid ?? entry.uuid ?? "").trim();
     if (!actorUuid) throw new Error("A Session participant requires an Actor UUID.");
@@ -23,9 +51,12 @@ export function createSession(raw = {}, { idFactory = () => crypto.randomUUID(),
     description: String(raw.description ?? ""),
     gmNotes: String(raw.gmNotes ?? ""),
     locationId: raw.locationId ? String(raw.locationId) : null,
+    days,
+    daysUsed,
     plannedDurationHours,
     participants,
     availableActivities: [...new Set((raw.availableActivities ?? []).map(String).filter(Boolean))],
+    activityCatalogSeeded: raw.activityCatalogSeeded === true,
     plannedProjectIds: [...new Set((raw.plannedProjectIds ?? []).map(String).filter(Boolean))],
     segmentIds: [...new Set((raw.segmentIds ?? []).map(String).filter(Boolean))],
     status,
@@ -37,12 +68,23 @@ export function createSession(raw = {}, { idFactory = () => crypto.randomUUID(),
   };
 }
 
+/** Sessions saved before the Xanathar activities existed gain those activities once. */
+export function seedSavedSessionActivities(session) {
+  if (!session || session.activityCatalogSeeded === true) return false;
+  if (!Array.isArray(session.availableActivities)) session.availableActivities = [];
+  for (const id of XGE_ACTIVITY_IDS) {
+    if (!session.availableActivities.includes(id)) session.availableActivities.push(id);
+  }
+  session.activityCatalogSeeded = true;
+  return true;
+}
+
 export function transitionSession(source, status, at = Date.now()) {
   const session = clone(source);
-  const allowed = { draft: ["upcoming", "cancelled"], upcoming: ["active", "cancelled"], active: ["finalized", "cancelled"] };
+  const allowed = { pending: ["active", "cancelled"], active: ["finalized", "cancelled"] };
   if (!allowed[session.status]?.includes(status)) throw new Error(`Session cannot transition from ${session.status} to ${status}.`);
   session.status = status;
-  if (status === "upcoming") session.publishedAt = at;
+  if (status === "pending") session.publishedAt = at;
   if (status === "active") session.startedAt = at;
   if (status === "finalized") session.finalizedAt = at;
   session.history.push({ at, type: status, data: {} });

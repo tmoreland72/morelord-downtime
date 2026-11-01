@@ -60,3 +60,71 @@ export function allocateSegmentHours(source, { projectId, participantActorUuids,
   segment.allocations.push(allocation);
   return { segment, allocation };
 }
+
+/** Give back the session hours recorded against one Project. A second call is a no-op. */
+export function releaseProjectHours(source, projectId) {
+  const segment = clone(source);
+  const target = String(projectId);
+  const kept = [];
+  for (const allocation of segment.allocations) {
+    if (String(allocation.projectId) !== target) {
+      kept.push(allocation);
+      continue;
+    }
+    for (const actorUuid of allocation.participantActorUuids ?? []) {
+      const participant = segment.participants.find(entry => entry.actorUuid === actorUuid);
+      if (participant) participant.allocatedHours = Math.max(0, hours(participant.allocatedHours) - hours(allocation.hours));
+    }
+  }
+  segment.allocations = kept;
+  return segment;
+}
+
+/** Record time a character has already spent. Crafting can exceed the plan because the time is already gone. */
+export function recordSpentHours(source, { actorUuid, hours: requestedHours, projectId, at = Date.now(), sourceName = "craftworks", recipeId = null, recipeName = null, activityId = null, days = null } = {}) {
+  const segment = clone(source);
+  if (segment.status !== "open") throw new Error("Only an active Downtime Session can record spent time.");
+  const spent = hours(requestedHours);
+  if (!spent) throw new Error("Spent hours must be greater than zero.");
+  const participant = segment.participants.find(entry => entry.actorUuid === String(actorUuid));
+  if (!participant) throw new Error(`Actor '${actorUuid}' is not part of this Downtime Session.`);
+  participant.allocatedHours += spent;
+  const allocation = {
+    id: `${segment.id}:${segment.allocations.length + 1}`,
+    projectId: String(projectId),
+    participantActorUuids: [participant.actorUuid],
+    hours: spent,
+    createdAt: at,
+    source: String(sourceName),
+    recipeId: recipeId == null ? null : String(recipeId),
+    recipeName: recipeName == null ? null : String(recipeName),
+    activityId: activityId == null ? null : String(activityId),
+    days: days == null ? null : Number(days)
+  };
+  segment.allocations.push(allocation);
+  return { segment, allocation, exceeded: participant.allocatedHours > participant.availableHours };
+}
+
+/** A presence activity spends a Session day without taking hours from the hour pool. */
+export function recordSpentDays(source, { actorUuid, days = 1, projectId, at = Date.now(), activityId = null } = {}) {
+  const segment = clone(source);
+  if (segment.status !== "open") throw new Error("Only an active Downtime Session can record spent time.");
+  const spentDays = Number(days);
+  if (!Number.isFinite(spentDays) || spentDays <= 0) throw new Error("Spent days must be greater than zero.");
+  const participant = segment.participants.find(entry => entry.actorUuid === String(actorUuid));
+  if (!participant) throw new Error(`Actor '${actorUuid}' is not part of this Downtime Session.`);
+  const allocation = {
+    id: `${segment.id}:${segment.allocations.length + 1}`,
+    projectId: String(projectId),
+    participantActorUuids: [participant.actorUuid],
+    hours: 0,
+    days: spentDays,
+    createdAt: at,
+    source: "xge",
+    recipeId: null,
+    recipeName: null,
+    activityId: activityId == null ? null : String(activityId)
+  };
+  segment.allocations.push(allocation);
+  return { segment, allocation };
+}

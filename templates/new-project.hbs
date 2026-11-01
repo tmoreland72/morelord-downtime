@@ -6,7 +6,7 @@
   <div class="ml-grid ml-downtime-activity-cards" data-columns="2">
     {{#each activityTypes}}<article class="ml-card ml-stack ml-downtime-activity-card" data-gap="2">
       <i class="{{icon}} ml-hero__icon"></i>
-      <div><h2>{{name}}</h2><p>{{description}}</p></div>
+      <div><h2 class="ml-field-label">{{name}}<button type="button" class="ml-help-button" data-action="explain" data-activity-id="{{id}}" aria-label="About {{name}}"><i class="fa-regular fa-circle-question" aria-hidden="true"></i></button></h2><p>{{description}}</p></div>
       <button class="ml-downtime-activity-card__action" type="button" data-action="choose" data-activity-id="{{id}}"><i class="{{actionIcon}}"></i> {{actionLabel}}</button>
     </article>{{/each}}
   </div>

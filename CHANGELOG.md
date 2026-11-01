@@ -1,5 +1,49 @@
 # Morelord Downtime Changelog
 
+## 0.3.0
+
+### Fixed
+
+- A project with a location receives allocated time, and advances on **Advance Day**, only while the active Session is saved at that location. **On the Road** is a Session with no location. **Allocate**, the hours field, and the contributor checks stay disabled, with a reason such as **Requires being in Neverwinter**. **Research** and **Relaxation** still advance while the character is away.
+- The Project list shows **Edit** for every Downtime project. **Cancel Project** for Training, Commission, and Source Item is on the editor's right-hand footer, not on the Allocate Time screen.
+- **Advance Day**, while a Session is active, spends up to 8 hours of each participant's remaining Session time, even when that character had no project that day. Hours already spent that day on a day-based activity, such as Source Item, count as those 8 hours and are not charged again. The charge stops at 0. When fewer than 8 hours remain, Session History notes how many were taken. **Participant Time** includes the charge.
+- A presence project shows a small green dot when it is **Active** and a hollow dot when it is **Inactive**. The owner or the GM clicks the hollow dot, or **Make Active**, to choose which project **Advance Day** credits. The dot is on the Project list, Project details, and Session details. Other project types have no dot.
+- Session details lists each participant's time in that Session, such as Darro with 12 / 16 hours. When **Days** is set, the line also shows days. The hours include instructor time, crafting, and Source Item labor. The days include presence activities and Source Item. The list updates while the window is open and is not on the main Downtime page.
+- Session details and Session History place each value directly after its label.
+- A Session saved before the Xanathar activities existed includes Religious Service, Carousing, Crime, Gambling, Pit Fighting, Relaxation, and Research. **Available Activities** on the Session editor lists them, and a GM can turn each one off.
+- Crafting projects stay in Downtime when the viewed scene can support the recipe. An active Session that is On the Road, or that has no Location, does not hide recipes Neverwinter can still support. Work already underway stays listed and shows as paused when neither place allows it. One recipe whose location check cannot be read no longer removes the rest of the crafting list.
+- **Commission** is no longer an **Available Activities** choice. **Source Item** remains, checked per Session.
+- **Session History** lists each participant's spent time: who spent how many hours or days, on which Project or activity, and when. Training includes the student and the instructor. Crafting time and Source Item days are included.
+- **Session History** lists every change while the Session was open, oldest first: who, which Project, what changed, the result, and when. That includes hours and days, each check, outcomes, Active or Inactive, completion and cancellation, instructor time, and Advance Day progress for Research and Relaxation.
+- **Cancel Project** and **Delete Project** are on the Project editor and Project details, aligned to the right. They are not on the Project list.
+- Relaxation clears every Exhaustion level without toggling a status effect the system already removed. A Source Item Persuasion roll is saved on the Project. A Persuasion total that is not a number is rejected. `sourceItem.negotiate(projectId, roll)` forwards that roll.
+- **New Project** puts a question mark beside each project type. It explains that type: what it does, the time, the cost, the checks, where and when it advances, and the outcome.
+- Check menus show the selected character's bonus, such as Religion (+5) or Thieves' Tools (+4). The bonus is that character's total, including proficiency. No character chosen leaves the bonus off, and changing the character updates it.
+- A character can have one **Active** presence project, such as Carousing or Crime. **Advance Day** credits that project when the Session is at its Location. Another presence project stays **Inactive** until the owner or the GM makes it Active. **Research** and **Relaxation** still advance while the character is away. A character who already had several keeps the most recently advanced one Active, or the oldest if none have advanced.
+- Seven Xanathar downtime activities are available: **Religious Service**, **Carousing**, **Crime**, **Gambling**, **Pit Fighting**, **Relaxation**, and **Research**. Each takes 7 days. Religious Service needs a Temple. Research needs a Library. Research and Relaxation advance without a Session. The others advance only in an active Session at the Project's location. Costs and winnings use the character's currency. Relaxation removes every Exhaustion level.
+- Only a GM can create, edit, or delete a Downtime Session. Players see Sessions read-only. Saving a Session is rejected for a player.
+- An NPC instructor can teach only subjects the Location's **Instructor** specialty allows. **Any** or a blank specialty allows every subject. Neverwinter limited to **Common Sign Language** offers only that language. The check uses Core's `locationAllowsSpecialty` when Morelord Core 0.9.0 provides it.
+- Instructor specialty may be several keys. An empty list allows every subject. A specialty saved as a single value is still that one key. NPC and provider checks both use `locationAllowsSpecialty`.
+- **Select Training** offers only D&D 2024 skills, languages, tools, weapons, armor training, and weapon masteries. It does not follow Configure Sources. A saved project whose subject is no longer offered keeps its label. An NPC instructor can still teach only subjects the Location's **Instructor** specialty allows.
+- Training with another player character as the instructor spends the same Session hours for both characters. Changing that allocation, or cancelling or deleting the training, updates both. The instructor cannot spend more time than they have left.
+- Allocating Training from the Project charges the instructor as well as the student, including when the instructor was stored as an actor id or a token. The instructor's player sees the Project read-only, labeled **Instructing** the student.
+- Only a GM can change a Training project's **Required Hours (GM Adjustable)**. The field is read-only for players, and a player request that changes those hours is rejected.
+- **Days** on a Downtime Session is optional. **Hours** stays editable by the GM. Setting **Days** fills **Hours** with **Days** × 8, and **Hours** can then be changed. Day-based projects are limited by **Days** only when **Days** is set. Hour allocations are limited by **Hours**. Saved sessions keep their hours and leave **Days** blank.
+- Sessions are **Pending** or **Active**, and can be **Finalized** or **Cancelled**. Saved Draft and Upcoming sessions become Pending.
+- Crafting time is read from the character's saved Craftworks jobs, so a successful craft and a failed attempt both add their spent hours to the active Downtime Session.
+- A finished Source Item search posts a roll request in chat. The owning player clicks **Roll** and makes the Arcana or Investigation check in the skill roll dialog. A GM can roll it when that player is offline. The sourcing result is unchanged.
+- A successful Source Item result says the item must be picked up at the Project's assigned Location and names that Location. The chat card and the Project's **Sourcing Result** both include that line. If no Location is assigned, they say no location is assigned and leave out the pickup line.
+- The follow-up Persuasion check is the same kind of chat roll request. Compared with the sourcing DC, failing by 5 or more raises the price 10%, failing by 1 to 4 raises it 5%, meeting it or beating it by less than 5 leaves it unchanged, beating it by 5 to 9 lowers it 10%, beating it by 10 to 14 lowers it 20%, and beating it by 15 or more lowers it 25%. The chat result shows that adjustment.
+
+## 0.2.1
+
+### Fixed
+
+- Hours spent crafting in Morelord Craftworks are added to that character's allocated time in the active Downtime Session when **Available Activities** includes **Crafting**. Each crafting check counts, including a failed check, and so does a recipe that finishes without a check. Open crafting time already on the character is included when Downtime first sees it during an active Session. Time spent while no Session is active is not applied later, and cancelling a craft does not refund Session time already recorded. Awarded crafting jobs are not charged to a later Session.
+- **Commission** and **Source Item** are included in a Session's **Available Activities** with Training and Crafting. Each day those projects progress spends one 8-hour labor day from the active Session when that activity is enabled and the character is participating. A day progressed while the activity is not enabled is not charged later.
+- A crafting check allocates its spent hours to the active Session even when the connected GM is in Core's Ignored Users. A check that finishes while Downtime is still reading the current crafting total is still allocated.
+- Open Downtime windows refresh in place for the GM and for players when Craftworks changes a character or when Session time is saved. The refresh does not bring Downtime to the front. This requires Morelord Core 0.9.0.
+
 ## 0.2.0
 
 ### Improvements

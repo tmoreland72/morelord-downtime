@@ -1,0 +1,12 @@
+<section class="ml-chat-card ml-source-item-chat">
+  <header><h2>{{projectName}}</h2><p>{{ownerName}} rolled Persuasion {{total}} against DC {{dc}}.</p></header>
+  <p><strong>{{tierLabel}}. Price adjustment {{adjustmentLabel}}.</strong></p>
+  <div class="ml-source-item-chat__items">
+    {{#each items}}
+      <article class="ml-source-item-chat__item">
+        <img src="{{img}}" alt="{{name}}">
+        <div><a class="content-link" data-link data-uuid="{{uuid}}"><i class="fas fa-suitcase"></i> {{name}}</a><span>{{rarityLabel}} · {{priceLabel}}</span></div>
+      </article>
+    {{else}}<p>No offers were adjusted.</p>{{/each}}
+  </div>
+</section>

@@ -1,5 +1,12 @@
 import { itemRarity } from "../../../morelord-core/scripts/services/item-rarity.js";
 
+export function assertPlayerTrainingHours({ isGm, requestedHours, allowedHours }) {
+  if (isGm === true) return;
+  if (Number(requestedHours) !== Number(allowedHours)) {
+    throw new Error("Only a GM can change the training's required hours.");
+  }
+}
+
 export function trainingDefault(kind, intelligenceModifier = 0) {
   const modifier = Number(intelligenceModifier);
   const weeks = Math.max(1, 10 - Math.max(0, Number.isFinite(modifier) ? modifier : 0));

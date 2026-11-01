@@ -1,9 +1,14 @@
 import { listCharacterActors } from "../../../morelord-core/scripts/ui/actor-participation.js";
+import { sameActor, trainingAudience } from "../activities/training/training-activity.mjs";
 import { projectManagementActions, projectManagementContext } from "./project-management.mjs";
 import { LiveDowntimeApplication } from "./downtime-application.mjs";
 import { titleCase } from "../ui/formatting.mjs";
-import { getCoreApi, getModuleApi } from "../integrations/core-api.mjs";
+import { getModuleApi } from "../integrations/core-api.mjs";
 import { formatHistory } from "../ui/history.mjs";
+import { sessionJournal, sessionParticipantTime } from "../ui/session-spends.mjs";
+import { PERSUASION_PRICE_TIERS, formatPriceAdjustment, sourceItemCollectionNotice } from "../activities/source-item/source-item-activity.mjs";
+import { presenceMarker } from "../domain/presence-focus.mjs";
+import { locationMismatch, requiresLocationReason, sessionPlaceId } from "../domain/location-gate.mjs";
 
 class DetailApplication extends LiveDowntimeApplication {}
 
@@ -12,10 +17,14 @@ export class SessionDetailApp extends DetailApplication {
   static configure(services) { this.services = services; }
   static DEFAULT_OPTIONS = {
     id: "morelord-downtime-session-detail",
-    classes: ["ml-window", "ml-downtime-module"],
+    classes: ["ml-window", "ml-downtime-module", "ml-downtime-session-detail"],
     tag: "section",
     position: { width: 720, height: 680 },
-    window: { title: "Downtime Session Details", icon: "fa-solid fa-calendar-days", resizable: true }
+    window: { title: "Downtime Session Details", icon: "fa-solid fa-calendar-days", resizable: true },
+    actions: {
+      setPresenceFocus: SessionDetailApp.setPresenceFocus,
+      viewProject: SessionDetailApp.viewProject
+    }
   };
   static PARTS = { content: { template: "modules/morelord-downtime/templates/session-detail.hbs" } };
 
@@ -28,16 +37,77 @@ export class SessionDetailApp extends DetailApplication {
     const session = await this.constructor.services.sessions.get(this.sessionId);
     if (!session) throw new Error("Session not found.");
     const locations = this.constructor.services.locations()?.list?.() ?? [];
+    const [segments, projects] = await Promise.all([
+      this.constructor.services.segments.list(),
+      this.constructor.services.projects.list()
+    ]);
+    const historyEntries = sessionJournal({
+      session,
+      segments,
+      projects,
+      activityName: id => this.constructor.services.activities.get(id)?.name ?? null
+    });
+    const participantTime = sessionParticipantTime({ session, segments });
+    const isGm = globalThis.game?.user?.isGM === true;
+    const ownedActorUuids = new Set(listCharacterActors({ ownedOnly: true }).map(actor => actor.uuid));
+    const ownsActor = uuid => [...ownedActorUuids].some(id => sameActor(id, uuid));
+    const participants = new Set(session.participants.map(entry => entry.actorUuid));
+    const closed = new Set(["completed", "cancelled", "failed"]);
+    const projectRows = projects.filter(project => {
+      const involved = participants.has(project.owner?.uuid)
+        || (project.participants ?? []).some(person => participants.has(person.actorUuid));
+      if (!involved || closed.has(project.status)) return false;
+      if (isGm) return true;
+      return ownsActor(project.owner?.uuid)
+        || trainingAudience(project, ownedActorUuids).instructs
+        || (project.participants ?? []).some(person => ownsActor(person.actorUuid));
+    }).map(project => ({
+      id: project.id,
+      name: project.name,
+      ownerName: project.owner?.name ?? project.owner?.uuid ?? "",
+      activityLabel: this.constructor.services.activities.get(project.activityType)?.name ?? titleCase(project.activityType),
+      ...presenceMarker(project, { canToggle: isGm || ownsActor(project.owner?.uuid) })
+    }));
     return {
       ...await super._prepareContext(options),
       session: {
         ...session,
+        statusLabel: { pending: "Pending", active: "Active", finalized: "Finalized", cancelled: "Cancelled" }[session.status] ?? session.status,
+        daysLabel: session.days == null || session.days === "" ? "Not set" : `${session.daysUsed ?? 0} of ${session.days} used`,
         locationName: locations.find(location => location.id === session.locationId)?.name ?? "No Location",
         participantSummary: session.participants.map(entry => entry.name ?? entry.actorUuid).join(", "),
         activitySummary: session.availableActivities.map(id => this.constructor.services.activities.get(id)?.name ?? titleCase(id)).join(", ") || "No new Projects",
-        history: await formatHistory(session.history, this.constructor.services, session)
+        participantTime,
+        hasParticipantTime: participantTime.length > 0,
+        projects: projectRows,
+        hasProjects: projectRows.length > 0,
+        historyEntries,
+        hasHistory: historyEntries.length > 0
       }
     };
+  }
+
+  static async setPresenceFocus(event, target) {
+    event.preventDefault();
+    event.stopPropagation?.();
+    const projectId = target.closest("[data-project-id]")?.dataset.projectId;
+    if (!projectId) return;
+    target.disabled = true;
+    try {
+      await this.constructor.services.allocationAuthority.setPresenceFocus(projectId);
+      ui.notifications.info("That project is now Active.");
+      await this.render({ force: true });
+    } catch (error) {
+      ui.notifications.error(error.message);
+      target.disabled = false;
+    }
+  }
+
+  static viewProject(event, target) {
+    event.preventDefault();
+    const projectId = target.closest("[data-project-id]")?.dataset.projectId;
+    if (!projectId) return;
+    new ProjectDetailApp({ projectId }).render({ force: true });
   }
 }
 
@@ -55,6 +125,7 @@ export class ProjectDetailApp extends DetailApplication {
       allocate: ProjectDetailApp.allocate,
       planProject: ProjectDetailApp.planProject,
       negotiateSourceItem: ProjectDetailApp.negotiateSourceItem,
+      setPresenceFocus: ProjectDetailApp.setPresenceFocus,
       openSourceItem: ProjectDetailApp.openSourceItem,
       openResearchRecipe: ProjectDetailApp.openResearchRecipe,
       collectCommission: ProjectDetailApp.collectCommission
@@ -87,10 +158,15 @@ export class ProjectDetailApp extends DetailApplication {
       });
     const allocationPool = openPools.at(-1) ?? null;
     const requiredActors = new Set([project.owner.uuid, ...project.participants.map(participant => participant.actorUuid)]);
-    const upcomingSession = (await this.constructor.services.sessions.list({ status: "upcoming", participantActorUuid: project.owner.uuid }))
+    const upcomingSession = (await this.constructor.services.sessions.list({ status: "pending", participantActorUuid: project.owner.uuid }))
       .find(session => session.availableActivities.includes(project.activityType));
-    const canManage = game.user.isGM || ownedActorUuids.has(project.owner.uuid);
+    const canManage = game.user.isGM || [...ownedActorUuids].some(uuid => sameActor(uuid, project.owner.uuid));
+    const audience = trainingAudience(project, ownedActorUuids);
     const effortRemaining = Math.max(0, effort.requiredHours - effort.completedHours);
+    const activeSession = activeSessions[0] ?? null;
+    const locationName = locations.find(location => location.id === project.locationId)?.name ?? (project.locationId ? "its assigned Location" : "Any Location");
+    const locationBlocked = Boolean(activeSession) && locationMismatch(project, sessionPlaceId(activeSession));
+    const hasEditor = typeof this.constructor.services.activities.get(project.activityType)?.edit === "function";
     return {
       ...await super._prepareContext(options),
       ...await projectManagementContext(project, this.constructor.services),
@@ -98,7 +174,11 @@ export class ProjectDetailApp extends DetailApplication {
         ...project,
         activityLabel: this.constructor.services.activities.get(project.activityType)?.name ?? titleCase(project.activityType),
         ownerName: project.owner.name ?? project.owner.uuid,
-        locationName: locations.find(location => location.id === project.locationId)?.name ?? "Any Location",
+        locationName,
+        hasEditor,
+        locationBlocked,
+        locationBlockReason: locationBlocked ? requiresLocationReason(locationName) : "",
+        instructingNote: !game.user?.isGM && audience.readOnly ? `You are instructing ${project.owner.name || "the student"}. This project is read-only.` : "",
         instructorName: training ? (training.instructor?.mode === "npc"
           ? training.instructor.name
           : game.actors.get(training.instructor?.actorUuid?.split(".").at(-1))?.name ?? "Not assigned") : null,
@@ -111,6 +191,7 @@ export class ProjectDetailApp extends DetailApplication {
         elapsedLabel: `${elapsed.completedDays} / ${elapsed.requiredDays} days`,
         usesEffort: ["effort", "hybrid"].includes(project.progress.mode),
         usesElapsed: ["elapsed", "hybrid"].includes(project.progress.mode),
+        ...presenceMarker(project, { canToggle: canManage }),
         canPlan: Boolean(upcomingSession && ["effort", "hybrid"].includes(project.progress.mode) && !upcomingSession.plannedProjectIds.includes(project.id) && canManage),
         plannedSessionId: upcomingSession?.id ?? null,
         canAllocate: Boolean(allocationPool && ["effort", "hybrid"].includes(project.progress.mode) && effortRemaining > 0 && canManage),
@@ -118,7 +199,7 @@ export class ProjectDetailApp extends DetailApplication {
         allocationParticipants: (allocationPool?.participants ?? []).map(participant => ({
           ...participant,
           remainingHours: Math.max(0, participant.availableHours - participant.allocatedHours),
-          checked: requiredActors.has(participant.actorUuid)
+          checked: [...requiredActors].some(uuid => sameActor(uuid, participant.actorUuid))
         })),
         commission: commission ? {
           contractorName: commission.contractorName,
@@ -131,12 +212,33 @@ export class ProjectDetailApp extends DetailApplication {
           checkLabel: sourceItem.checkSkill === "inv" ? "Investigation" : "Arcana",
           targetPriceLabel: sourceItem.outcome?.targetPriceGp == null ? null : `${sourceItem.outcome.targetPriceGp.toLocaleString()} gp`,
           alternatives: (sourceItem.outcome?.alternatives ?? []).map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` })),
-          persuasionLabel: sourceItem.persuasion ? `${sourceItem.persuasion.total} (${sourceItem.persuasion.adjustment > 0 ? "+" : ""}${Math.round(sourceItem.persuasion.adjustment * 100)}%)` : null,
-          canNegotiate: Boolean(sourceItem.outcome && !sourceItem.persuasion && canManage)
+          persuasionLabel: sourceItem.persuasion ? `${sourceItem.persuasion.total} vs DC ${sourceItem.persuasion.dc ?? sourceItem.dc}: ${sourceItem.persuasion.tierLabel} (${formatPriceAdjustment(sourceItem.persuasion.adjustment)})` : null,
+          persuasionTiers: PERSUASION_PRICE_TIERS.map(tier => ({ label: tier.label, adjustmentLabel: formatPriceAdjustment(tier.adjustment) })),
+          collectionNotice: sourceItem.outcome?.success
+            ? sourceItemCollectionNotice({
+              locationId: project.locationId,
+              locationName: locations.find(location => location.id === project.locationId)?.name
+            })
+            : null,
+          canNegotiate: Boolean(sourceItem.outcome && !sourceItem.persuasion && !sourceItem.pendingPersuasion && canManage)
         } : null,
         history: await formatHistory(project.history, this.constructor.services, project)
       }
     };
+  }
+
+  static async setPresenceFocus(event, target) {
+    event.preventDefault();
+    event.stopPropagation?.();
+    target.disabled = true;
+    try {
+      await this.constructor.services.allocationAuthority.setPresenceFocus(this.projectId);
+      ui.notifications.info("This project is now Active.");
+      await this.render({ force: true });
+    } catch (error) {
+      ui.notifications.error(error.message);
+      target.disabled = false;
+    }
   }
 
   static async allocate(event, target) {
@@ -177,15 +279,11 @@ export class ProjectDetailApp extends DetailApplication {
     event.preventDefault();
     target.disabled = true;
     try {
-      const project = await this.constructor.services.projects.get(this.projectId);
-      const result = await getCoreApi().rolls.skill(await fromUuid(project.owner.uuid), "per", { flavor: `${project.name} — Persuasion` });
-      if (result.cancelled) throw new Error("The Persuasion check was cancelled.");
-      const roll = { naturalRoll: result.naturalD20, total: result.total, rollModifier: result.total - result.naturalD20 };
-      await this.constructor.services.allocationAuthority.negotiateSourceItem(this.projectId, roll);
-      ui.notifications.info("Persuasion resolved and offer prices updated.");
+      await this.constructor.services.allocationAuthority.requestSourceItemPersuasion(this.projectId);
+      ui.notifications.info("Persuasion roll requested in chat.");
       await this.render({ force: true });
     } catch (error) {
-      ui.notifications.error(`Could not negotiate the offer: ${error.message}`);
+      ui.notifications.error(`Could not request the Persuasion roll: ${error.message}`);
     } finally { target.disabled = false; }
   }
 

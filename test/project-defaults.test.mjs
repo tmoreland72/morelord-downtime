@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { trainingDefault, commissionDefault } from "../scripts/domain/project-defaults.mjs";
+import { assertPlayerTrainingHours, trainingDefault, commissionDefault } from "../scripts/domain/project-defaults.mjs";
 
 test("training defaults use positive Intelligence only and identify GM extensions", () => {
   assert.equal(trainingDefault("language", 3).hours, 280);
@@ -10,6 +10,15 @@ test("training defaults use positive Intelligence only and identify GM extension
     assert.match(trainingDefault(kind, 2).guidance, /GM-defined/);
     assert.equal(trainingDefault(kind, 2).hours, 320);
   }
+});
+
+test("only a GM can change training required hours", () => {
+  assert.doesNotThrow(() => assertPlayerTrainingHours({ isGm: false, requestedHours: 400, allowedHours: 400 }));
+  assert.doesNotThrow(() => assertPlayerTrainingHours({ isGm: true, requestedHours: 12, allowedHours: 400 }));
+  assert.throws(
+    () => assertPlayerTrainingHours({ isGm: false, requestedHours: 12, allowedHours: 400 }),
+    /Only a GM can change the training's required hours/
+  );
 });
 
 test("commission estimates handle rarity formats, consumables, mundane prices and exceptions", () => {
