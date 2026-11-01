@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- A project with a location receives allocated time, and advances on **Advance Day**, only while the active Session is saved at that location. **On the Road** is a Session with no location. **Allocate**, the hours field, and the contributor checks stay disabled, with a reason such as **Requires being in Neverwinter**. **Research** and **Relaxation** still advance while the character is away.
+- The Project list shows **Edit** for every Downtime project. **Cancel Project** for Training, Commission, and Source Item is on the editor's right-hand footer, not on the Allocate Time screen.
 - **Advance Day**, while a Session is active, spends up to 8 hours of each participant's remaining Session time, even when that character had no project that day. Hours already spent that day on a day-based activity, such as Source Item, count as those 8 hours and are not charged again. The charge stops at 0. When fewer than 8 hours remain, Session History notes how many were taken. **Participant Time** includes the charge.
 - A presence project shows a small green dot when it is **Active** and a hollow dot when it is **Inactive**. The owner or the GM clicks the hollow dot, or **Make Active**, to choose which project **Advance Day** credits. The dot is on the Project list, Project details, and Session details. Other project types have no dot.
 - Session details lists each participant's time in that Session, such as Darro with 12 / 16 hours. When **Days** is set, the line also shows days. The hours include instructor time, crafting, and Source Item labor. The days include presence activities and Source Item. The list updates while the window is open and is not on the main Downtime page.

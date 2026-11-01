@@ -1,3 +1,5 @@
+import { locationMismatch } from "../../domain/location-gate.mjs";
+
 /** Seven Xanathar downtime activities. Numbers are the book's; wording is ours. */
 
 export const XGE_DAYS = 7;
@@ -44,6 +46,7 @@ export function presenceAllows(project, session) {
 export function elapsedDayApplies(project, { session = null, sessionDaysBlocked = false } = {}) {
   const policy = xgePolicy(project?.activityType);
   if (policy === "away") return true;
+  if (session?.status === "active" && locationMismatch(project, session.locationId)) return false;
   if (policy === "present") return !sessionDaysBlocked && project.presenceFocus === true && presenceAllows(project, session);
   return !sessionDaysBlocked;
 }

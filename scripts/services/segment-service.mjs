@@ -1,5 +1,6 @@
 import { applyEffort } from "../domain/project.mjs";
 import { allocateSegmentHours, createSegment, remainingHours } from "../domain/segment.mjs";
+import { allocationPlaceId, locationMismatch, requiresLocationReason } from "../domain/location-gate.mjs";
 import { characterInstructorUuid, sameActor, withCharacterInstructor } from "../activities/training/training-activity.mjs";
 
 export class SegmentService {
@@ -71,7 +72,12 @@ export class SegmentService {
     if (segment && segment.status !== "open") reasons.push("The Downtime Session is not active.");
     if (segment?.metadata?.sessionId && (!session || session.status !== "active")) reasons.push("The Downtime Session is not active.");
     if (session && project && !session.availableActivities.includes(project.activityType)) reasons.push("This activity is not available in the active Downtime Session.");
-    if (project?.locationId && segment?.locationId !== project.locationId) reasons.push("This Project can only progress at its assigned Location.");
+    const placeId = allocationPlaceId(session, segment);
+    if (project && locationMismatch(project, placeId)) {
+      const name = this.getLocation?.(project.locationId)?.name;
+      reasons.push(requiresLocationReason(name));
+      return { passed: false, reasons };
+    }
     const activity = project ? this.activityRegistry.get(project.activityType) : null;
     if (project && activity) {
       const locationId = project.locationId || segment?.locationId;
@@ -80,7 +86,7 @@ export class SegmentService {
         try { location = this.getLocation(locationId) ?? null; }
         catch { location = null; }
       }
-      const result = await activity.canProgress(project, { segment, participantActorUuids, hours, location });
+      const result = await activity.canProgress(project, { segment, participantActorUuids, hours, location, placeId });
       if (result === false) reasons.push("The Project cannot progress during this Downtime Session.");
       else if (result?.passed === false) reasons.push(...(result.reasons ?? ["The Project cannot progress during this Downtime Session."]));
     }

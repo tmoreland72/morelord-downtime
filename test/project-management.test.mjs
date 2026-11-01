@@ -42,15 +42,22 @@ test("project controls respect ownership, progress, and cancellation; actions re
 
 test("Cancel and Delete stay off the Project list and sit on the right of the editor", () => {
   const list = readFileSync(new URL("../templates/downtime-dashboard.hbs", import.meta.url), "utf8");
-  const editors = ["create-training.hbs", "create-commission.hbs", "create-source-item.hbs", "project-detail.hbs"]
+  const editors = ["create-training.hbs", "create-commission.hbs", "create-source-item.hbs"]
     .map(name => readFileSync(new URL(`../templates/${name}`, import.meta.url), "utf8"));
+  const detail = readFileSync(new URL("../templates/project-detail.hbs", import.meta.url), "utf8");
   const css = readFileSync(new URL("../styles/morelord-downtime.css", import.meta.url), "utf8");
   assert.equal(list.includes("cancelProject"), false);
   assert.equal(list.includes("deleteProject"), false);
+  assert.equal(list.includes('title="View Project"'), false);
+  assert.match(list, /data-action="editProject" title="Edit Project"/);
   for (const template of editors) {
     assert.match(template, /class="ml-page-footer ml-downtime-edit-footer"/);
     assert.match(template, /data-action="cancelProject"/);
     assert.match(template, /data-action="deleteProject"/);
   }
+  assert.match(detail, /unless project\.hasEditor/);
+  assert.match(detail, /project\.locationBlocked/);
+  assert.match(detail, /locationBlockReason/);
+  assert.match(detail, /data-allocation-hours[^>]*project\.locationBlocked/);
   assert.match(css, /\.ml-downtime-edit-footer \{[^}]*justify-content:\s*flex-end/);
 });

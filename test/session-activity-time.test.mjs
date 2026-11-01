@@ -33,6 +33,7 @@ function world() {
 async function activeSession(sessions, activities) {
   const session = await sessions.create({
     name: "Market Week",
+    locationId: "market",
     plannedDurationHours: 40,
     participants: [{ actorUuid: "Actor.aric", name: "Aric" }],
     availableActivities: activities
@@ -93,6 +94,29 @@ test("Advance Day spends eight Session hours for every participant, and a Source
   assert.equal(state.segments[started.segment.id].participants[0].allocatedHours, 16);
   assert.equal(state.projects.cloak.progress.elapsed.completedDays, 2);
   assert.equal(state.projects.plate.progress.elapsed.completedDays, 2);
+});
+
+test("Advance Day skips a located project when the active Session is somewhere else", async () => {
+  const { repository, sessions } = world();
+  const projects = new ProjectService({ repository, now: () => 500 });
+  const started = await sessions.start((await sessions.create({
+    name: "On the Road",
+    plannedDurationHours: 40,
+    participants: [{ actorUuid: "Actor.aric", name: "Aric" }],
+    availableActivities: ["training"]
+  })).id);
+  await projects.create(createCommissionProject({
+    owner: { uuid: "Actor.aric", name: "Aric" },
+    contractorName: "Smith",
+    itemDescription: "Plate",
+    locationId: "neverwinter",
+    requiredDays: 5
+  }, { idFactory: () => "plate", now: () => 1 }));
+  await projects.advanceDay({ idempotencyKey: "road-day" });
+  assert.equal((await projects.get("plate")).progress.elapsed.completedDays, 0);
+  await sessions.update(started.session.id, { locationId: "neverwinter" });
+  await projects.advanceDay({ idempotencyKey: "town-day" });
+  assert.equal((await projects.get("plate")).progress.elapsed.completedDays, 1);
 });
 
 test("Session History names each person's hours or days without internal ids", () => {

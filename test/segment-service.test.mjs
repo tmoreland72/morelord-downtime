@@ -4,6 +4,7 @@ import { ActivityRegistry } from "../scripts/domain/activity-registry.mjs";
 import { ProjectRepository } from "../scripts/persistence/project-repository.mjs";
 import { ProjectService } from "../scripts/services/project-service.mjs";
 import { SegmentService } from "../scripts/services/segment-service.mjs";
+import { SessionService } from "../scripts/services/session-service.mjs";
 
 function harness({ requirementEvaluator = null } = {}) {
   let stored = null;
@@ -82,6 +83,68 @@ test("a finalized Segment rejects further allocations", async () => {
   const finalized = await segments.finalize(segment.id);
   assert.equal(finalized.status, "finalized");
   await assert.rejects(() => segments.allocate({ segmentId: segment.id, projectId: project.id, participantActorUuids: ["Actor.aric"], hours: 1 }), /not active/);
+});
+
+test("allocation follows the active Session location, not a stale time-pool location", async () => {
+  let stored = null;
+  const repository = new ProjectRepository({
+    getState: async () => stored,
+    setState: async value => { stored = structuredClone(value); }
+  });
+  const activities = new ActivityRegistry();
+  activities.register({ id: "training", name: "Training", createProject: value => value });
+  let projectId = 0;
+  let sessionId = 0;
+  let segmentId = 0;
+  const projects = new ProjectService({ repository, idFactory: () => `train-${++projectId}`, now: () => 10 });
+  const segments = new SegmentService({
+    repository,
+    activityRegistry: activities,
+    getLocation: id => ({ id, name: id === "neverwinter" ? "Neverwinter" : id }),
+    idFactory: () => `segment-${++segmentId}`,
+    now: () => 20
+  });
+  const sessions = new SessionService({ repository, idFactory: () => `session-${++sessionId}`, segmentIdFactory: () => `segment-${++segmentId}`, now: () => 20 });
+  const project = await projects.create({
+    name: "Learn Elvish",
+    activityType: "training",
+    owner: { uuid: "Actor.aric", name: "Aric" },
+    locationId: "neverwinter",
+    status: "active",
+    progress: { mode: "effort", effort: { requiredHours: 40, completedHours: 0 } }
+  });
+  const away = await sessions.start((await sessions.create({
+    name: "On the Road",
+    plannedDurationHours: 16,
+    participants: [{ actorUuid: "Actor.aric", name: "Aric" }],
+    availableActivities: ["training"]
+  })).id);
+  await assert.rejects(
+    () => segments.allocate({ segmentId: away.segment.id, projectId: project.id, participantActorUuids: ["Actor.aric"], hours: 1 }),
+    /Requires being in Neverwinter/
+  );
+  assert.equal((await projects.get(project.id)).progress.effort.completedHours, 0);
+
+  const there = await sessions.create({
+    name: "Neverwinter Week",
+    locationId: "neverwinter",
+    plannedDurationHours: 16,
+    participants: [{ actorUuid: "Actor.aric", name: "Aric" }],
+    availableActivities: ["training"]
+  });
+  await assert.rejects(() => sessions.start(there.id), /Finalize/);
+  const state = await repository.read();
+  state.sessions[away.session.id].status = "finalized";
+  state.segments[away.segment.id].status = "finalized";
+  await repository.write(state);
+  const started = await sessions.start(there.id);
+  const allowed = await segments.allocate({
+    segmentId: started.segment.id,
+    projectId: project.id,
+    participantActorUuids: ["Actor.aric"],
+    hours: 1
+  });
+  assert.equal(allowed.project.progress.effort.completedHours, 1);
 });
 
 test("an active Session must permit the Project activity before time can be spent", async () => {

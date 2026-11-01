@@ -292,10 +292,11 @@ export class DowntimeDashboardApp extends LiveDowntimeApplication {
 
   static async editProject(event, target) {
     event.preventDefault();
-    const project = await this.constructor.services.projects.get(target.closest("[data-project-id]")?.dataset.projectId);
+    const projectId = target.closest("[data-project-id]")?.dataset.projectId;
+    const project = await this.constructor.services.projects.get(projectId);
     const editor = this.constructor.services.activities.get(project?.activityType)?.edit;
-    if (!editor) return ui.notifications.warn("This Project type does not provide an editor.");
-    return editor(project);
+    if (typeof editor === "function") return editor(project);
+    new ProjectDetailApp({ projectId }).render({ force: true });
   }
 
   static async collectProject(event, target) {

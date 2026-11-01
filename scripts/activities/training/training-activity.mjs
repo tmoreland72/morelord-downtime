@@ -1,6 +1,7 @@
 import { trainingDefault } from "../../domain/project-defaults.mjs";
 import { createProject } from "../../domain/project.mjs";
 import { locationAllowsSpecialty } from "../../domain/instructor-specialty.mjs";
+import { requiresLocationReason } from "../../domain/location-gate.mjs";
 
 export const TRAINING_ACTIVITY_ID = "training";
 export const TRAINING_KINDS = Object.freeze(["artisanTool", "toolProficiency", "skillProficiency", "language", "armorProficiency", "weaponProficiency", "weaponMastery"]);
@@ -103,7 +104,7 @@ export function trainingAudience(project, ownedUuids = []) {
   };
 }
 
-export function canProgressTraining(project, { segment, participantActorUuids = [], location = null } = {}) {
+export function canProgressTraining(project, { segment, participantActorUuids = [], location = null, placeId = null } = {}) {
   const training = project.metadata?.training;
   if (!training) return { passed: false, reasons: ["Training metadata is missing."] };
   if (segment?.source === "journey" && !training.travelCompatible) {
@@ -120,8 +121,10 @@ export function canProgressTraining(project, { segment, participantActorUuids = 
     }
   } else if (instructor.mode === "npc") {
     if (!instructor.name) return { passed: false, reasons: ["The NPC instructor needs a name."] };
-    if (project.locationId && segment?.locationId !== project.locationId) {
-      return { passed: false, reasons: ["The NPC instructor is only available at the Project's Location."] };
+    const here = placeId != null ? String(placeId) : String(segment?.locationId ?? "");
+    if (project.locationId && here.trim() !== String(project.locationId)) {
+      const placeName = location?.id === project.locationId ? location.name : null;
+      return { passed: false, reasons: [requiresLocationReason(placeName)] };
     }
     if (location && !locationAllowsSpecialty(location, "instructor", training.proficiencyId)) {
       return { passed: false, reasons: ["This Location's Instructor cannot teach that subject."] };

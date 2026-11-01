@@ -8,6 +8,7 @@ import { formatHistory } from "../ui/history.mjs";
 import { sessionJournal, sessionParticipantTime } from "../ui/session-spends.mjs";
 import { PERSUASION_PRICE_TIERS, formatPriceAdjustment, sourceItemCollectionNotice } from "../activities/source-item/source-item-activity.mjs";
 import { presenceMarker } from "../domain/presence-focus.mjs";
+import { locationMismatch, requiresLocationReason, sessionPlaceId } from "../domain/location-gate.mjs";
 
 class DetailApplication extends LiveDowntimeApplication {}
 
@@ -162,6 +163,10 @@ export class ProjectDetailApp extends DetailApplication {
     const canManage = game.user.isGM || [...ownedActorUuids].some(uuid => sameActor(uuid, project.owner.uuid));
     const audience = trainingAudience(project, ownedActorUuids);
     const effortRemaining = Math.max(0, effort.requiredHours - effort.completedHours);
+    const activeSession = activeSessions[0] ?? null;
+    const locationName = locations.find(location => location.id === project.locationId)?.name ?? (project.locationId ? "its assigned Location" : "Any Location");
+    const locationBlocked = Boolean(activeSession) && locationMismatch(project, sessionPlaceId(activeSession));
+    const hasEditor = typeof this.constructor.services.activities.get(project.activityType)?.edit === "function";
     return {
       ...await super._prepareContext(options),
       ...await projectManagementContext(project, this.constructor.services),
@@ -169,7 +174,10 @@ export class ProjectDetailApp extends DetailApplication {
         ...project,
         activityLabel: this.constructor.services.activities.get(project.activityType)?.name ?? titleCase(project.activityType),
         ownerName: project.owner.name ?? project.owner.uuid,
-        locationName: locations.find(location => location.id === project.locationId)?.name ?? "Any Location",
+        locationName,
+        hasEditor,
+        locationBlocked,
+        locationBlockReason: locationBlocked ? requiresLocationReason(locationName) : "",
         instructingNote: !game.user?.isGM && audience.readOnly ? `You are instructing ${project.owner.name || "the student"}. This project is read-only.` : "",
         instructorName: training ? (training.instructor?.mode === "npc"
           ? training.instructor.name
