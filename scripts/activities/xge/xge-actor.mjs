@@ -1,4 +1,5 @@
-import { applyGpDelta, exhaustionUpdate, gpAmount, payUpTo, paymentNote, readExhaustion } from "./xge-currency.mjs";
+import { applyGpDelta, gpAmount } from "../../../../morelord-core/scripts/services/currency-service.js";
+import { exhaustionUpdate, payUpTo, paymentNote, readExhaustion } from "./xge-currency.mjs";
 
 export async function spendGp(actor, amount, reason) {
   const name = actor?.name ?? "The character";

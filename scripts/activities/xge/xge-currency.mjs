@@ -1,41 +1,4 @@
-const RATES = Object.freeze([
-  ["pp", 1000],
-  ["gp", 100],
-  ["ep", 50],
-  ["sp", 10],
-  ["cp", 1]
-]);
-
-export function totalCp(currency = {}) {
-  return RATES.reduce((sum, [key, rate]) => sum + Math.max(0, Math.floor(Number(currency?.[key] ?? 0))) * rate, 0);
-}
-
-export function currencyFromCp(cp) {
-  let rest = Math.max(0, Math.floor(Number(cp) || 0));
-  const result = {};
-  for (const [key, rate] of RATES) {
-    result[key] = Math.floor(rest / rate);
-    rest -= result[key] * rate;
-  }
-  return result;
-}
-
-export function gpAmount(currency) {
-  return totalCp(currency) / 100;
-}
-
-/** Positive delta pays the character. Negative delta spends. Coin mixes are normalized. */
-export function applyGpDelta(currency, deltaGp) {
-  const delta = Number(deltaGp);
-  if (!Number.isFinite(delta)) throw new Error("The gold amount is not a number.");
-  const next = totalCp(currency) + Math.round(delta * 100);
-  if (next < 0) {
-    const have = gpAmount(currency);
-    const need = Math.abs(delta);
-    throw new Error(`Not enough money. This costs ${need} gp and the character has ${have} gp.`);
-  }
-  return currencyFromCp(next);
-}
+import { applyGpDelta, gpAmount } from "../../../../morelord-core/scripts/services/currency-service.js";
 
 /** Take up to `gp`. Returns the remainder that could not be paid. */
 export function payUpTo(currency, gp) {
