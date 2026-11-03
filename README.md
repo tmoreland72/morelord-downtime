@@ -37,6 +37,7 @@ The API is available at `game.modules.get("morelord-downtime").api` and `Morelor
 - `registerActivity(definition)`
 - `open()` opens the Downtime dashboard (also available from the Morelord Tools scene control with the timer icon)
 - `activities.get(id)` / `activities.list()`
+- `activities.createProject(activityId, data)` creates one Project. `activityId` is the activity type, for example `gambling` or `training`, so `data` does not need `activityType`. Crafting keeps its own Project workflow.
 - `projects.create(raw)` / `get(id)` / `list(filters)` / `update(id, changes)` / `remove(id)`
 - `projects.applyEffort(id, hours, options)`
 - `advanceDay({ idempotencyKey, source, metadata })`

@@ -422,12 +422,7 @@ Hooks.once("ready", () => {
     activities: Object.freeze({
       get: id => activities.get(id),
       list: () => activities.list(),
-      createProject: async (id, data) => {
-        const activity = activities.get(id);
-        if (!activity) throw new Error(`Downtime activity '${id}' is not registered.`);
-        if (typeof activity.createProject !== "function") throw new Error(`Downtime activity '${id}' uses its own Project workflow.`);
-        return projects.create(await activity.createProject(data));
-      }
+      createProject: (id, data) => projects.createFromActivity(id, data, activities.get(id))
     }),
     projects: Object.freeze({
       list: filters => projects.list(filters),
