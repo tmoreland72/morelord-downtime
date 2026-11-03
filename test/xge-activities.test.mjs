@@ -4,7 +4,8 @@ import { ProjectRepository } from "../scripts/persistence/project-repository.mjs
 import { ProjectService } from "../scripts/services/project-service.mjs";
 import { SessionService } from "../scripts/services/session-service.mjs";
 import { ActivityRegistry } from "../scripts/domain/activity-registry.mjs";
-import { applyGpDelta, gpAmount } from "../scripts/activities/xge/xge-currency.mjs";
+import { applyGpDelta, currencyFromCp, gpAmount, totalCp } from "../../morelord-core/scripts/services/currency-service.js";
+import { payUpTo } from "../scripts/activities/xge/xge-currency.mjs";
 import { spendGp, clearExhaustion } from "../scripts/activities/xge/xge-actor.mjs";
 import { applyXgeCheck, buildXgeProject } from "../scripts/activities/xge/xge-project.mjs";
 import { XgeResolutionService } from "../scripts/activities/xge/xge-resolution-service.mjs";
@@ -145,7 +146,21 @@ test("a resolved check pays the actor and a short stake is refused", async () =>
   assert.equal(gpAmount(actor.system.currency), 13);
   await clearExhaustion(actor);
   assert.equal(actor.system.attributes.exhaustion, 0);
-  assert.deepEqual(applyGpDelta({ gp: 1, sp: 5 }, 0.5).gp >= 1, true);
+  assert.deepEqual(applyGpDelta({ gp: 1, sp: 5 }, 0.5), { pp: 0, gp: 2, ep: 0, sp: 0, cp: 0 });
+});
+
+test("purse math goes through Core currency and keeps SRD coin totals", () => {
+  assert.equal(totalCp({ pp: 1, gp: 2, ep: 1, sp: 3, cp: 4 }), 1284);
+  assert.equal(totalCp({ gp: 1.9, sp: -4, cp: 3 }), 103);
+  assert.equal(gpAmount({ gp: 1, sp: 5 }), 1.5);
+  assert.deepEqual(currencyFromCp(1250), { pp: 1, gp: 2, ep: 1, sp: 0, cp: 0 });
+  assert.deepEqual(currencyFromCp(-5), { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 });
+  assert.throws(() => applyGpDelta({ gp: 20 }, -250), /Not enough money\. This costs 250 gp and the character has 20 gp/);
+  assert.throws(() => applyGpDelta({ gp: 1 }, Number.NaN), /The gold amount is not a number/);
+  const partial = payUpTo({ gp: 3, sp: 5 }, 10);
+  assert.equal(partial.paid, 3.5);
+  assert.equal(partial.unpaid, 6.5);
+  assert.deepEqual(partial.currency, { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 });
 });
 
 test("Research and Relaxation advance with no Session, and the others wait for the assigned place", async () => {
