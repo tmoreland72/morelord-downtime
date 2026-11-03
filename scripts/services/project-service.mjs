@@ -52,6 +52,21 @@ export class ProjectService {
     return structuredClone(state.projects[project.id]);
   }
 
+  /**
+   * One public activities.createProject call.
+   * The activity id is the activity type. An activity that already saved the Project is not saved again.
+   */
+  async createFromActivity(activityId, data, activity) {
+    if (!activity) throw new Error(`Downtime activity '${activityId}' is not registered.`);
+    if (typeof activity.createProject !== "function") throw new Error(`Downtime activity '${activityId}' uses its own Project workflow.`);
+    const source = data && typeof data === "object" ? data : {};
+    const input = { ...source, activityType: activity.id };
+    const known = new Set((await this.list()).map(project => project.id));
+    const built = await activity.createProject(input);
+    if (built?.id && !known.has(built.id) && await this.get(built.id)) return built;
+    return this.create(built);
+  }
+
   async setPresenceFocus(id) {
     this.#requireGm();
     const state = await this.repository.read();
