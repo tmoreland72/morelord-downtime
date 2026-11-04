@@ -2,6 +2,9 @@ import { applySourceItemPersuasion, formatPriceAdjustment, resolveSourceItemProj
 import { sourceItemPersuasionCard, sourceItemRollCard } from "./source-item-roll-request.mjs";
 import { completeChatRoll } from "../../../../morelord-core/scripts/services/chat-roll-requests.js";
 
+const RESULT_TEMPLATE = "modules/morelord-downtime/templates/chat/source-item-result.hbs";
+const PERSUASION_TEMPLATE = "modules/morelord-downtime/templates/chat/source-item-persuasion.hbs";
+
 export class SourceItemResolutionService {
   constructor({ catalog, getRequests = () => null, commit = async project => project, getLocation = () => null }) {
     this.catalog = catalog;
@@ -83,37 +86,78 @@ export class SourceItemResolutionService {
 
   async #postResult(project) {
     const sourceItem = project.metadata.sourceItem;
-    const items = sourceItem.outcome.success
-      ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
-      : sourceItem.outcome.alternatives;
     const success = sourceItem.outcome.success === true;
-    const content = await foundry.applications.handlebars.renderTemplate("modules/morelord-downtime/templates/chat/source-item-result.hbs", {
+    const ownerName = project.owner.name ?? "Character";
+    const collectionMessage = success ? this.#collectionNotice(project).message : null;
+    const data = {
       projectName: project.name,
-      ownerName: project.owner.name ?? "Character",
+      ownerName,
       success,
-      collectionMessage: success ? this.#collectionNotice(project).message : null,
+      collectionMessage,
       total: sourceItem.outcome.total,
       dc: sourceItem.dc,
-      items: items.map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }))
-    });
-    await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ alias: project.owner.name ?? "Source Item" }), content });
+      items: pricedOffers(success
+        ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
+        : sourceItem.outcome.alternatives)
+    };
+    await this.#postChat(project, await renderSourceItemChat(RESULT_TEMPLATE, data, "No eligible alternatives were available."));
   }
 
   async #postPersuasion(project) {
     const sourceItem = project.metadata.sourceItem;
     const persuasion = sourceItem.persuasion;
-    const items = sourceItem.outcome.success
-      ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
-      : sourceItem.outcome.alternatives;
-    const content = await foundry.applications.handlebars.renderTemplate("modules/morelord-downtime/templates/chat/source-item-persuasion.hbs", {
+    const ownerName = project.owner.name ?? "Character";
+    const adjustmentLabel = formatPriceAdjustment(persuasion.adjustment);
+    const data = {
       projectName: project.name,
-      ownerName: project.owner.name ?? "Character",
+      ownerName,
       total: persuasion.total,
       dc: persuasion.dc,
       tierLabel: persuasion.tierLabel,
-      adjustmentLabel: formatPriceAdjustment(persuasion.adjustment),
-      items: items.map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }))
-    });
+      adjustmentLabel,
+      items: pricedOffers(sourceItem.outcome.success
+        ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
+        : sourceItem.outcome.alternatives)
+    };
+    await this.#postChat(project, await renderSourceItemChat(PERSUASION_TEMPLATE, data, "No offers were adjusted."));
+  }
+
+  async #postChat(project, content) {
     await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ alias: project.owner.name ?? "Source Item" }), content });
   }
+}
+
+/** Keep the chat card text. Use Core's item rows for the offers when this Core build provides them. */
+async function renderSourceItemChat(template, data, emptyText) {
+  const itemCard = globalThis.MorelordCore?.ui?.itemCard;
+  const context = { ...data };
+  if (typeof itemCard === "function") {
+    const rows = itemRows(itemCard({ items: cardItems(data.items), emptyText }));
+    if (rows) context.itemsHTML = rows;
+  }
+  return foundry.applications.handlebars.renderTemplate(template, context);
+}
+
+/** itemCard returns a full card. These messages keep their own header, so only the rows are inserted. */
+function itemRows(html) {
+  const start = html.indexOf('<div class="ml-award-card__items">');
+  if (start >= 0) return html.slice(start, html.lastIndexOf("</div>") + "</div>".length);
+  const emptyStart = html.indexOf('<p class="ml-award-card__empty">');
+  if (emptyStart >= 0) return html.slice(emptyStart, html.indexOf("</p>", emptyStart) + "</p>".length);
+  return "";
+}
+
+function pricedOffers(items) {
+  return (items ?? []).map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }));
+}
+
+function cardItems(items) {
+  return items.map(item => ({
+    uuid: item.uuid ?? "",
+    name: item.name ?? "",
+    img: item.img ?? "",
+    rarity: item.rarity || item.rarityLabel || "",
+    quantity: 1,
+    value: item.priceLabel
+  }));
 }
