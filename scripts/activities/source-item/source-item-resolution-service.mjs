@@ -2,6 +2,10 @@ import { applySourceItemPersuasion, formatPriceAdjustment, resolveSourceItemProj
 import { sourceItemPersuasionCard, sourceItemRollCard } from "./source-item-roll-request.mjs";
 import { completeChatRoll } from "../../../../morelord-core/scripts/services/chat-roll-requests.js";
 
+const RESULT_TEMPLATE = "modules/morelord-downtime/templates/chat/source-item-result.hbs";
+const PERSUASION_TEMPLATE = "modules/morelord-downtime/templates/chat/source-item-persuasion.hbs";
+const SOURCE_ITEM_CARD_ICON = "fa-solid fa-suitcase";
+
 export class SourceItemResolutionService {
   constructor({ catalog, getRequests = () => null, commit = async project => project, getLocation = () => null }) {
     this.catalog = catalog;
@@ -83,37 +87,98 @@ export class SourceItemResolutionService {
 
   async #postResult(project) {
     const sourceItem = project.metadata.sourceItem;
-    const items = sourceItem.outcome.success
-      ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
-      : sourceItem.outcome.alternatives;
     const success = sourceItem.outcome.success === true;
-    const content = await foundry.applications.handlebars.renderTemplate("modules/morelord-downtime/templates/chat/source-item-result.hbs", {
+    const ownerName = project.owner.name ?? "Character";
+    const collectionMessage = success ? this.#collectionNotice(project).message : null;
+    const data = {
       projectName: project.name,
-      ownerName: project.owner.name ?? "Character",
+      ownerName,
       success,
-      collectionMessage: success ? this.#collectionNotice(project).message : null,
+      collectionMessage,
       total: sourceItem.outcome.total,
       dc: sourceItem.dc,
-      items: items.map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }))
+      items: pricedOffers(success
+        ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
+        : sourceItem.outcome.alternatives)
+    };
+    const headline = success
+      ? "Requested item found."
+      : "Requested item not found; alternative offers are available.";
+    const content = await renderSourceItemChat(RESULT_TEMPLATE, data, {
+      title: data.projectName,
+      icon: SOURCE_ITEM_CARD_ICON,
+      recipientName: ownerName,
+      subtitle: `${ownerName} rolled ${data.total} against DC ${data.dc}.`,
+      items: cardItems(data.items),
+      emptyText: "No eligible alternatives were available.",
+      bodyHTML: collectionMessage
+        ? `<p><strong>${escapeHtml(headline)}</strong></p><p>${escapeHtml(collectionMessage)}</p>`
+        : `<p><strong>${escapeHtml(headline)}</strong></p>`
     });
-    await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ alias: project.owner.name ?? "Source Item" }), content });
+    await this.#postChat(project, content);
   }
 
   async #postPersuasion(project) {
     const sourceItem = project.metadata.sourceItem;
     const persuasion = sourceItem.persuasion;
-    const items = sourceItem.outcome.success
-      ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
-      : sourceItem.outcome.alternatives;
-    const content = await foundry.applications.handlebars.renderTemplate("modules/morelord-downtime/templates/chat/source-item-persuasion.hbs", {
+    const ownerName = project.owner.name ?? "Character";
+    const adjustmentLabel = formatPriceAdjustment(persuasion.adjustment);
+    const data = {
       projectName: project.name,
-      ownerName: project.owner.name ?? "Character",
+      ownerName,
       total: persuasion.total,
       dc: persuasion.dc,
       tierLabel: persuasion.tierLabel,
-      adjustmentLabel: formatPriceAdjustment(persuasion.adjustment),
-      items: items.map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }))
+      adjustmentLabel,
+      items: pricedOffers(sourceItem.outcome.success
+        ? [{ ...sourceItem.target, priceGp: sourceItem.outcome.targetPriceGp }]
+        : sourceItem.outcome.alternatives)
+    };
+    const content = await renderSourceItemChat(PERSUASION_TEMPLATE, data, {
+      title: data.projectName,
+      icon: SOURCE_ITEM_CARD_ICON,
+      recipientName: ownerName,
+      subtitle: `${ownerName} rolled Persuasion ${data.total} against DC ${data.dc}.`,
+      items: cardItems(data.items),
+      emptyText: "No offers were adjusted.",
+      bodyHTML: `<p><strong>${escapeHtml(persuasion.tierLabel)}. Price adjustment ${escapeHtml(adjustmentLabel)}.</strong></p>`
     });
+    await this.#postChat(project, content);
+  }
+
+  async #postChat(project, content) {
     await ChatMessage.create({ speaker: ChatMessage.getSpeaker({ alias: project.owner.name ?? "Source Item" }), content });
   }
+}
+
+/** Use Core's shared item card when this build provides it. Otherwise keep the Handlebars card. */
+async function renderSourceItemChat(template, data, options) {
+  const itemCard = globalThis.MorelordCore?.ui?.itemCard;
+  if (typeof itemCard === "function") return itemCard(options);
+  return foundry.applications.handlebars.renderTemplate(template, data);
+}
+
+function pricedOffers(items) {
+  return (items ?? []).map(item => ({ ...item, priceLabel: `${Number(item.priceGp).toLocaleString()} gp` }));
+}
+
+function cardItems(items) {
+  return items.map(item => ({
+    uuid: item.uuid ?? "",
+    name: item.name ?? "",
+    img: item.img ?? "",
+    rarity: item.rarity || item.rarityLabel || "",
+    quantity: 1,
+    value: item.priceLabel
+  }));
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, character => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
+  }[character]));
 }

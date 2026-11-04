@@ -154,6 +154,8 @@ When the weeks are finished, Downtime posts a **Source Item** roll request in ch
 
 A poor roll cannot raise the price by more than 10%. A good roll cannot lower it by more than 25%. The chat result names the tier and the adjustment. The same table is on the Source Item Project after the search resolves. The initial investment is not refunded if the search fails; later edits can add investment or weeks but cannot reduce or redirect the committed investment.
 
+The sourcing result and the Persuasion result use Morelord Core's shared item card when Core provides it. The card names the Project and the character, states the roll against its DC, states whether the item was found or names the Persuasion tier and price adjustment, and lists each offer with its rarity and price. A Core build without that card posts the previous chat card, with the same text.
+
 ### Crafting
 
 Craftworks owns recipes, materials, jobs, checks, and outputs. Ready marked recipes and active jobs appear in **Projects**. A recipe appears when the character can work it at the viewed scene or at the active Session's place. The facility type and tier for that place are described in **Shared Locations**. An active Session that is **On the Road**, or that has no Location, does not hide recipes the scene still allows. Neverwinter remains the crafting place while that scene is the one being viewed. Work already underway stays in the list and shows as paused when neither place allows it. Opening a row launches Craftworks with the crafter selected. The progress column shows successful crafting progress. When failed checks make the hours spent greater than that progress, the row also shows the hours spent, for example `2 / 8 hours (4 hours spent)`.
