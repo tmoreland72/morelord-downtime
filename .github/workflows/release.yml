@@ -100,7 +100,7 @@ jobs:
         if: ${{ inputs.publish_only == false }}
         uses: actions/checkout@v4
         with:
-          repository: tmorelord72/morelord-craftworks
+          repository: tmoreland72/morelord-craftworks
           path: morelord-craftworks-checkout
           token: ${{ github.token }}
 

@@ -39,7 +39,7 @@ A normal release still needs `release-notes/RELEASE-NOTES-<version>.md` and `doc
 
 ## Morelord Core, Craftworks, and tests
 
-When `publish_only` is false, the workflow checks out the public default branches of `tmoreland72/morelord-core` and `tmorelord72/morelord-craftworks` and moves them beside this repository so `npm test` can import them.
+When `publish_only` is false, the workflow checks out the public default branches of `tmoreland72/morelord-core` and `tmoreland72/morelord-craftworks` and moves them beside this repository so `npm test` can import them.
 
 Downtime's Xanathar currency code imports `morelord-core/scripts/services/currency-service.js`. The Source Item chat-card test imports `morelord-core/scripts/ui/item-card.js`. Those files are on Core's default branch and are not in Core `v0.9.1`. Treat that default branch as planned Core 0.9.2. Research tests import `morelord-craftworks/scripts/crafting/crafting-material-service.mjs` and `morelord-craftworks/scripts/crafting/group-membership.mjs`.
 
