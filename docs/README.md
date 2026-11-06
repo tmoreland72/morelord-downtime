@@ -3,7 +3,7 @@ title: Morelord Downtime Documentation
 description: Manage persistent Projects, downtime Sessions, training, commissions, and item sourcing.
 slug: morelord-downtime
 product: morelord-downtime
-version: 0.3.0
+version: 0.3.1
 foundry: 14
 order: 0
 ---
@@ -14,7 +14,7 @@ Downtime tracks long-running character Projects across GM-managed downtime Sessi
 
 ## Setup
 
-Requires Foundry VTT 14, D&D5e 5.3 or newer, and Morelord Core 0.8.2 or newer. Enable Core and Downtime in your world. Open **Morelord Downtime** from the timer icon in **Morelord Tools** on the scene controls. GMs and players both see it. Core provides the shared interface, website documentation links, character eligibility, and Locations.
+Requires Foundry VTT 14, D&D5e 5.3 or newer, and Morelord Core 0.9.2 or newer. Enable Core and Downtime in your world. Open **Morelord Downtime** from the timer icon in **Morelord Tools** on the scene controls. GMs and players both see it. Core provides the shared interface, website documentation links, character eligibility, Locations, and the currency totals used by the Xanathar activities.
 
 Optional integrations are Journeys 0.2.1+, Craftworks 0.4.3+, and Marketplace 0.9.2+. Journeys supplies travel-day advancement; Craftworks supplies crafting Projects; Marketplace supplies Source Item wishlist choices, currency handling, and offers. Missing integrations disable their related features without preventing the base module from loading.
 
@@ -123,7 +123,7 @@ Research appears in New Project and Session activity choices only while the Drak
 
 ### Xanathar activities
 
-These take 7 days each. **Religious Service** needs a Temple and uses Religion or Persuasion. A menu that chooses the check shows the selected character's bonus, such as Religion (+5), Persuasion (+2), or Dice (+3). That bonus is the character's total, including proficiency or expertise. With no character chosen, the name is shown alone. Changing the character updates the bonus. Carousing always uses Persuasion, so it has no check menu. **Research** needs a Library. **Research** and **Relaxation** move on **Advance Day** even when no Session is active. **Carousing**, **Crime**, **Gambling**, **Pit Fighting**, and **Religious Service** move only while an active Session is at the Project's location and includes the character, and only when that project is **Active**. A character can have one Active presence project. The first one is Active on its own. Starting another leaves it **Inactive** until the owner or the GM chooses it, which makes the previous one Inactive. An Active presence project shows a small green dot beside its name. An Inactive one shows a hollow dot. The owner or the GM clicks the hollow dot, or **Make Active**, to switch. Anyone else sees the dot and cannot click it. The dot is on the Project list for players and for the GM, on Project details, and on Session details. Training, Crafting, Commission, Source Item, Research, and Relaxation have no dot. **Research** and **Relaxation** are not part of that choice and still advance while the character is away. Carousing costs 10, 50, or 250 gp by social class. Upper class needs the GM to confirm access to the local nobility. Crime costs 25 gp. Gambling stakes 10 to 1,000 gp. Research costs 50 gp. Relaxation costs 7 gp and removes every Exhaustion level. Gold is taken from, or added to, the character's currency. Days spent during a Session show in **Session History**.
+These take 7 days each. **Religious Service** needs a Temple and uses Religion or Persuasion. A menu that chooses the check shows the selected character's bonus, such as Religion (+5), Persuasion (+2), or Dice (+3). That bonus is the character's total, including proficiency or expertise. With no character chosen, the name is shown alone. Changing the character updates the bonus. Carousing always uses Persuasion, so it has no check menu. **Research** needs a Library. **Research** and **Relaxation** move on **Advance Day** even when no Session is active. **Carousing**, **Crime**, **Gambling**, **Pit Fighting**, and **Religious Service** move only while an active Session is at the Project's location and includes the character, and only when that project is **Active**. A character can have one Active presence project. The first one is Active on its own. Starting another leaves it **Inactive** until the owner or the GM chooses it, which makes the previous one Inactive. An Active presence project shows a small green dot beside its name. An Inactive one shows a hollow dot. The owner or the GM clicks the hollow dot, or **Make Active**, to switch. Anyone else sees the dot and cannot click it. The dot is on the Project list for players and for the GM, on Project details, and on Session details. Training, Crafting, Commission, Source Item, Research, and Relaxation have no dot. **Research** and **Relaxation** are not part of that choice and still advance while the character is away. Carousing costs 10, 50, or 250 gp by social class. Upper class needs the GM to confirm access to the local nobility. Crime costs 25 gp. Gambling stakes 10 to 1,000 gp. Research costs 50 gp. Relaxation costs 7 gp and removes every Exhaustion level. Gold is taken from, or added to, the character's currency through Morelord Core's currency service. Days spent during a Session show in **Session History**.
 
 ### Training
 
@@ -154,7 +154,7 @@ When the weeks are finished, Downtime posts a **Source Item** roll request in ch
 
 A poor roll cannot raise the price by more than 10%. A good roll cannot lower it by more than 25%. The chat result names the tier and the adjustment. The same table is on the Source Item Project after the search resolves. The initial investment is not refunded if the search fails; later edits can add investment or weeks but cannot reduce or redirect the committed investment.
 
-The offer list on the sourcing result, and on the Persuasion result, uses Morelord Core's shared item rows when Core provides them. Each offer shows its rarity and price. The Project name, the character, the roll against its DC, the found-or-not line, the pickup line, and the Persuasion tier stay on the existing chat card. The Roll request that asks for the check is unchanged. A Core build without those rows posts the previous item list.
+The offer list on the sourcing result, and on the Persuasion result, uses Morelord Core's shared item rows. Morelord Core 0.9.2 provides those rows. Each offer shows its rarity and price. The Project name, the character, the roll against its DC, the found-or-not line, the pickup line, and the Persuasion tier stay on the existing chat card. The Roll request that asks for the check is unchanged. A Core build without those rows posts the previous item list.
 
 ### Crafting
 
@@ -176,7 +176,7 @@ Project and Session details show history newest first, with timestamps and reada
 
 ## Troubleshooting
 
-- **Downtime is not under Morelord Tools, or an open window does not update after crafting:** update Morelord Core to 0.9.0 or newer. Until Core provides that tools registry, the same timer button stays on the Token controls. Core 0.9.0 refreshes the open window without bringing it forward.
+- **Downtime is not under Morelord Tools, or an open window does not update after crafting:** enable Morelord Core 0.9.2 or newer. That version registers the timer in Morelord Tools and refreshes an open Downtime window in place. A Core build without the tools registry leaves the same timer button on the Token controls.
 - **No available hours:** the GM must start a Session that includes the character and permits the activity.
 - **Request does not complete:** confirm a GM is connected and Core is enabled.
 - **Crafting or Source Item did not reduce available time:** start a Downtime Session that includes the character and enable that activity under **Available Activities**. **Advance Day** spends up to 8 hours for each participant in the active Session. Keep the primary GM connected for crafting checks. Time spent before the Session allowed the activity is not applied later. Cancelling a craft does not return time already recorded.
