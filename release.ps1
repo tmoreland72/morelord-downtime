@@ -633,23 +633,6 @@ function Publish-FoundryRelease {
     }
 }
 
-function Request-DocumentationDeployment {
-    param(
-        [Parameter(Mandatory = $true)][string]$Repository,
-        [Parameter(Mandatory = $true)][string]$ProductSlug,
-        [Parameter(Mandatory = $true)][string]$ReleaseVersion
-    )
-    $Dispatch = [pscustomobject]@{
-        event_type = 'product-docs-updated'
-        client_payload = [pscustomobject]@{
-            product = $ProductSlug
-            version = $ReleaseVersion
-        }
-    } | ConvertTo-Json -Depth 5 -Compress
-    $Dispatch | & gh api --method POST "repos/$Repository/dispatches" --input -
-    if ($LASTEXITCODE -ne 0) { throw "Unable to request documentation deployment from $Repository." }
-}
-
 function Show-Usage {
     param([string]$Title)
     Write-Host ''
@@ -683,7 +666,6 @@ $GitHubRepo = Get-RequiredConfigValue -Config $Config -Name 'githubRepo'
 $ReleaseBranch = Get-RequiredConfigValue -Config $Config -Name 'releaseBranch'
 $ArchiveName = Get-RequiredConfigValue -Config $Config -Name 'archiveName'
 $ProductDocumentationRelativePath = if ($Config.PSObject.Properties.Name -contains 'productDocumentationPath') { [string]$Config.productDocumentationPath } else { '' }
-$DocumentationWebsiteRepository = if ($Config.PSObject.Properties.Name -contains 'documentationWebsiteRepository') { [string]$Config.documentationWebsiteRepository } else { '' }
 $RequiredPaths = @($Config.requiredPaths | ForEach-Object { [string]$_ })
 $OptionalPaths = @($Config.optionalPaths | ForEach-Object { [string]$_ })
 if ($RequiredPaths.Count -eq 0) { throw 'release.config.json requiredPaths must contain at least one path.' }
@@ -809,10 +791,6 @@ if ($WebsiteOnly) {
     $WebsiteResponse = Publish-WebsiteRelease -EndpointBase $WebsiteUrl -Token $WebsiteToken -Payload $Payload
     Write-Host "Published: $($WebsiteResponse.action) $($WebsiteResponse.releaseId)" -ForegroundColor Green
     Write-Host "$WebsiteUrl$($WebsiteResponse.publicUrl)"
-    if (-not [string]::IsNullOrWhiteSpace($DocumentationWebsiteRepository)) {
-        Request-DocumentationDeployment -Repository $DocumentationWebsiteRepository -ProductSlug $ProductSlug -ReleaseVersion $Version
-        Write-Host "Documentation deployment requested from $DocumentationWebsiteRepository." -ForegroundColor Green
-    }
     exit 0
 }
 
@@ -977,10 +955,6 @@ try {
         $WebsiteResponse = Publish-WebsiteRelease -EndpointBase $WebsiteUrl -Token $WebsiteToken -Payload $Payload
         Write-Host "  Website record  : $($WebsiteResponse.action) $($WebsiteResponse.releaseId)" -ForegroundColor Green
         Write-Host "  Public URL      : $WebsiteUrl$($WebsiteResponse.publicUrl)"
-        if (-not [string]::IsNullOrWhiteSpace($DocumentationWebsiteRepository)) {
-            Request-DocumentationDeployment -Repository $DocumentationWebsiteRepository -ProductSlug $ProductSlug -ReleaseVersion $Version
-            Write-Host "  Documentation   : deployment requested" -ForegroundColor Green
-        }
     }
 
     Write-Host ''

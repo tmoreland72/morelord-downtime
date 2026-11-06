@@ -174,5 +174,6 @@ jobs:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ github.token }}
         # release.ps1 rebuilds CHANGELOG.md from release notes, puts it at the zip root,
-        # and commits it with module.json. It does not dispatch a separate docs workflow.
+        # and commits it with module.json. Do not add a documentation repository
+        # dispatch here or in release.ps1. See RELEASING.md.
         run: ./release.ps1 -Version $env:RELEASE_VERSION

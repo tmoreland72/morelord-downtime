@@ -33,7 +33,7 @@ The workflow passes those values only as environment variables on the publish st
 
 Leave `module.json` `version` at the last published release until this workflow runs. A patch dispatch from `0.3.0` resolves `0.3.1`. `release.ps1` then sets `module.json` to that version, rebuilds root `CHANGELOG.md` from `release-notes/RELEASE-NOTES-*.md`, and commits those two files. The workflow also requires `release-notes/RELEASE-NOTES-<version>.md` for the resolved version before it calls `release.ps1`.
 
-`publish_only` without `version` uses the version already in `module.json`. It does not increment it. `publish_only` with `version` publishes that exact version. `module.json` on `main` must already equal that version, and the `v` tag must already exist on `origin`. `-WebsiteOnly` and `-FoundryOnly` are separate script runs. They do not commit, tag, or create a GitHub Release. Website publication still requests the website repository's existing `product-docs-updated` event. The Actions workflow does not add another documentation dispatch.
+`publish_only` without `version` uses the version already in `module.json`. It does not increment it. `publish_only` with `version` publishes that exact version. `module.json` on `main` must already equal that version, and the `v` tag must already exist on `origin`. `-WebsiteOnly` and `-FoundryOnly` are separate script runs. They do not commit, tag, or create a GitHub Release. They publish the website release entry and the Foundry listing only. Do not add a documentation dispatch: `release.config.json` must not contain `documentationWebsiteRepository`, and `release.ps1` must not define `Request-DocumentationDeployment` or POST a `product-docs-updated` `repository_dispatch` to `tmoreland72/morelord-gaming-web`. That call returns HTTP 403 and fails the Release run after GitHub, Foundry, and the website entry have already published.
 
 A normal release still needs `release-notes/RELEASE-NOTES-<version>.md` and `docs/README.md` frontmatter for that version before the dispatch. For 0.3.1, the guide frontmatter is already `version: 0.3.1` while `module.json` stays `0.3.0` until the workflow bumps it.
 
@@ -63,7 +63,7 @@ Dispatch **Release** from `main` with an empty version and bump `patch` to publi
 .\release.ps1 -Version 0.3.1 -DryRun
 ```
 
-A normal release validates documentation and notes, rebuilds the cumulative root `CHANGELOG.md`, builds and verifies the ZIP, updates the manifest, commits and tags, pushes to GitHub, creates the GitHub Release, and publishes Foundry compatibility metadata and the Morelord website release entry. Dry runs do not publish or validate remote tokens. Drafts and prereleases skip Foundry and website publication. Website publication still requests the website repository's `product-docs-updated` event from `release.ps1`. The Actions workflow does not add a separate documentation dispatch.
+A normal release validates documentation and notes, rebuilds the cumulative root `CHANGELOG.md`, builds and verifies the ZIP, updates the manifest, commits and tags, pushes to GitHub, creates the GitHub Release, and publishes Foundry compatibility metadata and the Morelord website release entry. Dry runs do not publish or validate remote tokens. Drafts and prereleases skip Foundry and website publication. Publication ends with those destinations. Do not add a `product-docs-updated` repository dispatch from `release.ps1` or from the Actions workflow.
 
 `CHANGELOG.md` is generated from `release-notes/RELEASE-NOTES-*.md` in descending semantic version order (newest version first). Each version keeps the user-facing sections under `## What Changed` (`### Added`, `### Improvements`, `### Fixed`, and their `- ` bullets) and omits `## Verification`, other internal test sections, and `---` horizontal rules. Headings always have a space after `#`. The script writes the file only when the generated text differs, stages it with `module.json` (`git add -- module.json CHANGELOG.md`), and `release.config.json` lists it in `requiredPaths` so the release `.zip` contains it at the archive root. In-Foundry changelog viewers such as Big Bad Module Manager read that packaged file.
 
@@ -76,7 +76,7 @@ Check the changelog without publishing:
 
 `-ValidateOnly` leaves the Git working tree clean when `CHANGELOG.md` is already up to date. With `-Version`, it also builds and verifies the release ZIP locally.
 
-The user guide ships with the module and is version-checked. The docs directory is included; credentials, tests, and release tooling are excluded from the ZIP. Per-version notes under `release-notes/` stay out of the archive. Maintain the guide alongside the in-app help registered with Core. Website publication requests the website's `product-docs-updated` deployment workflow, which imports `docs/README.md` and lists the guide at `/docs/morelord-downtime`.
+The user guide ships with the module and is version-checked. The docs directory is included; credentials, tests, and release tooling are excluded from the ZIP. Per-version notes under `release-notes/` stay out of the archive. Maintain the guide alongside the in-app help registered with Core. Do not add a `product-docs-updated` dispatch that asks `tmoreland72/morelord-gaming-web` to import `docs/README.md`. The website repository rejects that dispatch with HTTP 403.
 
 ## Verify and recover
 
