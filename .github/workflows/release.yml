@@ -1,0 +1,178 @@
+# Dispatch from the main branch after this workflow is on main.
+# In-Foundry tests are not part of this workflow.
+# release.config.json releaseBranch is main, which is also the default branch.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Bump when version is empty and publish_only is false
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      version:
+        description: Explicit x.y.z. Empty bumps, or uses module.json when publish_only is true.
+        type: string
+        required: false
+      publish_only:
+        description: Publish an existing version to the website and Foundry only
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the main branch
+        run: |
+          if ($env:GITHUB_REF -ne 'refs/heads/main') {
+            throw "Dispatch this workflow from the main branch. Current ref: $env:GITHUB_REF"
+          }
+
+      - name: Require publish secrets
+        env:
+          RELEASE_PUBLISH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+          FOUNDRY_RELEASE_TOKEN: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:RELEASE_PUBLISH_TOKEN)) {
+            throw 'RELEASE_PUBLISH_TOKEN is empty. Add it under Settings > Secrets and variables > Actions.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:FOUNDRY_RELEASE_TOKEN)) {
+            throw 'FOUNDRY_RELEASE_TOKEN is empty. Add it under Settings > Secrets and variables > Actions.'
+          }
+
+      - name: Checkout Downtime
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Public repos. Owner is tmoreland72, the same githubOwner as this
+      # repository. The job GITHUB_TOKEN can read them. No cross-repo secret
+      # is required, and no token is written into the workflow. See RELEASING.md.
+      # Core's default branch must contain scripts/services/currency-service.js
+      # and scripts/ui/item-card.js. Those files are the planned Core 0.9.2
+      # APIs. Tag v0.9.1 does not contain them.
+      - name: Checkout Morelord Core
+        if: ${{ inputs.publish_only == false }}
+        uses: actions/checkout@v4
+        with:
+          repository: tmoreland72/morelord-core
+          path: morelord-core-checkout
+          token: ${{ github.token }}
+
+      - name: Place Morelord Core beside this repository
+        if: ${{ inputs.publish_only == false }}
+        run: |
+          $dest = Join-Path (Split-Path -Parent $env:GITHUB_WORKSPACE) 'morelord-core'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'morelord-core-checkout'
+          if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Recurse -Force }
+          Move-Item -LiteralPath $source -Destination $dest
+          foreach ($relative in @(
+            'scripts/services/currency-service.js',
+            'scripts/ui/item-card.js'
+          )) {
+            $file = Join-Path $dest $relative
+            if (-not (Test-Path -LiteralPath $file)) {
+              throw "morelord-core is missing $relative. Downtime imports that sibling path. It is part of the planned Core 0.9.2 APIs and is not in tag v0.9.1."
+            }
+          }
+
+      # Research unit tests import Craftworks material and inventory helpers.
+      - name: Checkout Morelord Craftworks
+        if: ${{ inputs.publish_only == false }}
+        uses: actions/checkout@v4
+        with:
+          repository: tmorelord72/morelord-craftworks
+          path: morelord-craftworks-checkout
+          token: ${{ github.token }}
+
+      - name: Place Morelord Craftworks beside this repository
+        if: ${{ inputs.publish_only == false }}
+        run: |
+          $dest = Join-Path (Split-Path -Parent $env:GITHUB_WORKSPACE) 'morelord-craftworks'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'morelord-craftworks-checkout'
+          if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Recurse -Force }
+          Move-Item -LiteralPath $source -Destination $dest
+          foreach ($relative in @(
+            'scripts/crafting/crafting-material-service.mjs',
+            'scripts/crafting/group-membership.mjs'
+          )) {
+            $file = Join-Path $dest $relative
+            if (-not (Test-Path -LiteralPath $file)) {
+              throw "morelord-craftworks is missing $relative. Downtime tests import that sibling path."
+            }
+          }
+
+      - name: Setup Node
+        if: ${{ inputs.publish_only == false }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run unit tests
+        if: ${{ inputs.publish_only == false }}
+        run: npm test
+
+      - name: Resolve release version
+        id: version
+        env:
+          INPUT_BUMP: ${{ inputs.bump }}
+          INPUT_VERSION: ${{ inputs.version }}
+          PUBLISH_ONLY: ${{ inputs.publish_only }}
+        run: |
+          $resolverArgs = @{
+            ModuleManifest = 'module.json'
+            Bump = $(if ([string]::IsNullOrWhiteSpace($env:INPUT_BUMP)) { 'patch' } else { $env:INPUT_BUMP })
+          }
+          if (-not [string]::IsNullOrWhiteSpace($env:INPUT_VERSION)) {
+            $resolverArgs.Version = $env:INPUT_VERSION
+          }
+          if ($env:PUBLISH_ONLY -eq 'true') { $resolverArgs.PublishOnly = $true }
+          $version = (& ./tools/resolve-release-version.ps1 @resolverArgs | Select-Object -Last 1).ToString().Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Version resolver returned a value that is not x.y.z.' }
+          $notes = Join-Path 'release-notes' "RELEASE-NOTES-$version.md"
+          if (-not (Test-Path -LiteralPath $notes -PathType Leaf)) {
+            throw "Release notes were not found: $notes. The resolved version comes from module.json; CHANGELOG.md is rebuilt from these notes."
+          }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version" -Encoding utf8NoBOM
+          Write-Host "Resolved release version $version"
+
+      - name: Publish existing release
+        if: ${{ inputs.publish_only }}
+        env:
+          RELEASE_PUBLISH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+          FOUNDRY_RELEASE_TOKEN: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./release.ps1 -Version $env:RELEASE_VERSION -WebsiteOnly
+          ./release.ps1 -Version $env:RELEASE_VERSION -FoundryOnly
+
+      - name: Create GitHub release
+        if: ${{ inputs.publish_only == false }}
+        env:
+          RELEASE_PUBLISH_TOKEN: ${{ secrets.RELEASE_PUBLISH_TOKEN }}
+          FOUNDRY_RELEASE_TOKEN: ${{ secrets.FOUNDRY_RELEASE_TOKEN }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        # release.ps1 rebuilds CHANGELOG.md from release notes, puts it at the zip root,
+        # and commits it with module.json. It does not dispatch a separate docs workflow.
+        run: ./release.ps1 -Version $env:RELEASE_VERSION

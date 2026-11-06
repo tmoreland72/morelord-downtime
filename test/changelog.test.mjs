@@ -101,7 +101,7 @@ test("CHANGELOG.md is the packaged cumulative release history", () => {
   assert.equal(changelog.includes("Requires Morelord Core 0.3.9 or newer."), false);
 
   const versions = [...changelog.matchAll(/^## (\S+)$/gm)].map((match) => match[1]);
-  assert.deepEqual(versions, ["0.3.0", "0.2.1", "0.2.0", "0.1.2", "0.1.1", "0.1.0"]);
+  assert.deepEqual(versions, ["0.3.1", "0.3.0", "0.2.1", "0.2.0", "0.1.2", "0.1.1", "0.1.0"]);
   for (const line of changelog.split("\n")) {
     if (line.startsWith("#")) assert.match(line, /^#{1,3} \S/);
     if (line.startsWith("-") || line.startsWith("*") || line.startsWith("+")) assert.match(line, /^- \S/);
@@ -113,4 +113,5 @@ test("CHANGELOG.md is the packaged cumulative release history", () => {
   assert.match(releaseScript, /function Update-Changelog/);
   assert.match(releaseScript, /git add -- module\.json CHANGELOG\.md/);
   assert.match(releaseScript, /\[switch\]\$ValidateOnly/);
+  assert.match(releaseScript, /\[switch\]\$FoundryOnly/);
 });

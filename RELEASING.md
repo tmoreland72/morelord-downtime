@@ -1,8 +1,49 @@
 # Releasing Morelord Downtime
 
-Downtime follows Morelord Core's shared `release.ps1` workflow. Module-specific settings live in `release.config.json`. PowerShell 7, Git, and an authenticated GitHub CLI are required for publication.
+Dispatch the **Release** workflow from the `main` branch after `.github/workflows/release.yml` is on `main`. The workflow runs on `ubuntu-latest` with PowerShell and calls `release.ps1`. It does not run in-Foundry tests. Module-specific settings live in `release.config.json`.
 
-The script loads `RELEASE_PUBLISH_TOKEN` and the package-specific `FOUNDRY_RELEASE_TOKEN` from the ignored local `.env`. See `.env.example` for the expected keys. Never commit tokens.
+## Secrets
+
+Add both secrets under **Settings > Secrets and variables > Actions** before the first dispatch:
+
+| Secret | Used for |
+| --- | --- |
+| `RELEASE_PUBLISH_TOKEN` | `morelordgaming.com` release feed |
+| `FOUNDRY_RELEASE_TOKEN` | Foundry VTT package listing |
+
+The workflow passes those values only as environment variables on the publish step. It does not write a `.env` file and it does not print the values. The job stops with a clear error when either secret is empty. Never commit tokens. Local runs can still load the same keys from the ignored `.env`. See `.env.example`.
+
+`GITHUB_TOKEN` is provided by Actions. The workflow sets `GH_TOKEN` from it so `release.ps1` can commit, tag, push, and create the GitHub Release. The workflow grants `contents: write` and commits as `github-actions[bot]`. Branch protection on `main` must allow that bot to push commits and tags. Sibling checkouts of public `tmoreland72/morelord-core` and `tmoreland72/morelord-craftworks` use that same token. No personal access token is stored in the workflow.
+
+## Inputs
+
+| Input | Default | Effect |
+| --- | --- | --- |
+| `bump` | `patch` | Used only when `version` is empty and `publish_only` is false |
+| `version` | empty | Explicit `x.y.z`. When set, `bump` is ignored |
+| `publish_only` | false | Skip the version bump, tag, and GitHub Release. Publish that version to the website and then to Foundry |
+
+`tools/resolve-release-version.ps1` reads the version from `module.json`. With `module.json` at `0.3.0` and no explicit version, the bumps are:
+
+| `bump` | Next version |
+| --- | --- |
+| `patch` | `0.3.1` |
+| `minor` | `0.4.0` |
+| `major` | `1.0.0` |
+
+Leave `module.json` `version` at the last published release until this workflow runs. A patch dispatch from `0.3.0` resolves `0.3.1`. `release.ps1` then sets `module.json` to that version, rebuilds root `CHANGELOG.md` from `release-notes/RELEASE-NOTES-*.md`, and commits those two files. The workflow also requires `release-notes/RELEASE-NOTES-<version>.md` for the resolved version before it calls `release.ps1`.
+
+`publish_only` without `version` uses the version already in `module.json`. It does not increment it. `publish_only` with `version` publishes that exact version. `module.json` on `main` must already equal that version, and the `v` tag must already exist on `origin`. `-WebsiteOnly` and `-FoundryOnly` are separate script runs. They do not commit, tag, or create a GitHub Release. Website publication still requests the website repository's existing `product-docs-updated` event. The Actions workflow does not add another documentation dispatch.
+
+A normal release still needs `release-notes/RELEASE-NOTES-<version>.md` and `docs/README.md` frontmatter for that version before the dispatch. For 0.3.1, the guide frontmatter is already `version: 0.3.1` while `module.json` stays `0.3.0` until the workflow bumps it.
+
+## Morelord Core, Craftworks, and tests
+
+When `publish_only` is false, the workflow checks out the public default branches of `tmoreland72/morelord-core` and `tmorelord72/morelord-craftworks` and moves them beside this repository so `npm test` can import them.
+
+Downtime's Xanathar currency code imports `morelord-core/scripts/services/currency-service.js`. The Source Item chat-card test imports `morelord-core/scripts/ui/item-card.js`. Those files are on Core's default branch and are not in Core `v0.9.1`. Treat that default branch as planned Core 0.9.2. Research tests import `morelord-craftworks/scripts/crafting/crafting-material-service.mjs` and `morelord-craftworks/scripts/crafting/group-membership.mjs`.
+
+`publish_only` skips both checkouts and skips `npm test`.
 
 ## Before release
 
@@ -14,14 +55,15 @@ The script loads `RELEASE_PUBLISH_TOKEN` and the package-specific `FOUNDRY_RELEA
 
 ## Run the workflow
 
-Use the intended version in both commands:
+Dispatch **Release** from `main` with an empty version and bump `patch` to publish the next patch, or pass an explicit `x.y.z`. Do not dispatch until Morelord Core 0.9.2 is published. Downtime 0.3.1 requires that Core minimum, and Core's released tags stop at 0.9.1.
+
+`release.ps1` is what the workflow runs. A local dry run uses the same script and does not publish:
 
 ```powershell
-.\release.ps1 -Version 0.1.0 -DryRun
-.\release.ps1 -Version 0.1.0
+.\release.ps1 -Version 0.3.1 -DryRun
 ```
 
-A normal release validates documentation and notes, rebuilds the cumulative root `CHANGELOG.md`, builds and verifies the ZIP, updates the manifest, commits and tags, pushes to GitHub, creates the GitHub Release, and publishes Foundry compatibility metadata and the Morelord website release entry. Dry runs do not publish or validate remote tokens. Drafts and prereleases skip Foundry and website publication.
+A normal release validates documentation and notes, rebuilds the cumulative root `CHANGELOG.md`, builds and verifies the ZIP, updates the manifest, commits and tags, pushes to GitHub, creates the GitHub Release, and publishes Foundry compatibility metadata and the Morelord website release entry. Dry runs do not publish or validate remote tokens. Drafts and prereleases skip Foundry and website publication. Website publication still requests the website repository's `product-docs-updated` event from `release.ps1`. The Actions workflow does not add a separate documentation dispatch.
 
 `CHANGELOG.md` is generated from `release-notes/RELEASE-NOTES-*.md` in descending semantic version order (newest version first). Each version keeps the user-facing sections under `## What Changed` (`### Added`, `### Improvements`, `### Fixed`, and their `- ` bullets) and omits `## Verification`, other internal test sections, and `---` horizontal rules. Headings always have a space after `#`. The script writes the file only when the generated text differs, stages it with `module.json` (`git add -- module.json CHANGELOG.md`), and `release.config.json` lists it in `requiredPaths` so the release `.zip` contains it at the archive root. In-Foundry changelog viewers such as Big Bad Module Manager read that packaged file.
 
