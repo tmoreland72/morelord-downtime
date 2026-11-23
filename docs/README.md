@@ -14,7 +14,7 @@ Downtime tracks long-running character Projects across GM-managed downtime Sessi
 
 ## Setup
 
-Requires Foundry VTT 14, D&D5e 5.3 or newer, and Morelord Core 0.9.2 or newer. Enable Core and Downtime in your world. Open **Morelord Downtime** from the timer icon in **Morelord Tools** on the scene controls. GMs and players both see it. Core provides the shared interface, website documentation links, character eligibility, Locations, and the currency totals used by the Xanathar activities.
+Requires Foundry VTT 14, D&D5e 5.3 or newer, and Morelord Core 0.9.4 or newer. Enable Core and Downtime in your world. Open **Morelord Downtime** from the timer icon in **Morelord Tools** on the scene controls. GMs and players both see it. Core provides the shared interface, website documentation links, character eligibility, Locations, and the currency totals used by the Xanathar activities.
 
 Optional integrations are Journeys 0.2.1+, Craftworks 0.4.3+, and Marketplace 0.9.2+. Journeys supplies travel-day advancement; Craftworks supplies crafting Projects; Marketplace supplies Source Item wishlist choices, currency handling, and offers. Missing integrations disable their related features without preventing the base module from loading.
 
@@ -176,7 +176,7 @@ Project and Session details show history newest first, with timestamps and reada
 
 ## Troubleshooting
 
-- **Downtime is not under Morelord Tools, or an open window does not update after crafting:** enable Morelord Core 0.9.2 or newer. That version registers the timer in Morelord Tools and refreshes an open Downtime window in place. A Core build without the tools registry leaves the same timer button on the Token controls.
+- **Downtime is not under Morelord Tools, or an open window does not update after crafting:** enable Morelord Core 0.9.4 or newer. That version registers the timer in Morelord Tools and refreshes an open Downtime window in place. A Core build without the tools registry leaves the same timer button on the Token controls.
 - **No available hours:** the GM must start a Session that includes the character and permits the activity.
 - **Request does not complete:** confirm a GM is connected and Core is enabled.
 - **Crafting or Source Item did not reduce available time:** start a Downtime Session that includes the character and enable that activity under **Available Activities**. **Advance Day** spends up to 8 hours for each participant in the active Session. Keep the primary GM connected for crafting checks. Time spent before the Session allowed the activity is not applied later. Cancelling a craft does not return time already recorded.

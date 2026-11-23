@@ -35,15 +35,6 @@
 .ml-training-choice p { margin: 0; color: var(--ml-color-muted); }
 .ml-training-choice__value { display: grid; gap: var(--ml-space-1); }
 .ml-training-choice__value small { color: var(--ml-color-muted); }
-.ml-window .window-content .ml-page-footer.ml-downtime-edit-footer {
-  display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-.ml-window .window-content .ml-page-footer.ml-downtime-edit-footer > button {
-  width: auto;
-  flex: 0 0 auto;
-}
 .ml-window .ml-resource-main span.ml-downtime-project-title,
 .ml-downtime-project-title {
   display: flex;

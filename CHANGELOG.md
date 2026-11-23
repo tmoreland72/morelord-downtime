@@ -1,5 +1,15 @@
 # Morelord Downtime Changelog
 
+## 0.3.2
+
+### Improvements
+
+- Normalized the cumulative changelog to LF line endings and pinned that format in Git. Removed an unrelated old module-version assertion from the Core dependency test.
+
+- Project editor and detail actions now use Core's form footer directly, without duplicated local alignment and button-sizing rules.
+
+- Requires Morelord Core 0.9.4 or later. Update Core first, then refresh connected clients.
+
 ## 0.3.1
 
 ### Fixed
