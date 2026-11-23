@@ -3,7 +3,7 @@ title: Morelord Downtime Documentation
 description: Manage persistent Projects, downtime Sessions, training, commissions, and item sourcing.
 slug: morelord-downtime
 product: morelord-downtime
-version: 0.3.1
+version: 0.3.2
 foundry: 14
 order: 0
 ---
